@@ -1,0 +1,3 @@
+[submodule "src/data/mtg-jamendo-dataset"]
+	path = src/data/mtg_jamendo_dataset
+	url = https://github.com/MTG/mtg-jamendo-dataset.git
