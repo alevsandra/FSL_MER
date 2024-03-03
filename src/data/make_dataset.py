@@ -2,10 +2,10 @@ import click
 import random
 import torch
 from torch.utils.data import Dataset
-from MTG_Jamendo.download import main_download
-from mtg_jamendo_dataset.scripts import commons
+from src.data.MTG_Jamendo.download import main_download
+from src.data.mtg_jamendo_dataset.scripts import commons
 from typing import List, Dict, Any, Tuple
-from utils import load_audio, collate_list_of_dicts
+from src.data.utils import load_audio, collate_list_of_dicts
 
 
 class ClassConditionalDataset(Dataset):
