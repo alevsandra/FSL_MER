@@ -142,13 +142,13 @@ class EpisodeDataset(Dataset):
 class MTGJamendo(ClassConditionalDataset):
     def __init__(self, download,
                  dataset, type, download_from, outputdir, unpack, remove,
-                 input_file, class_file, sample_rate):
+                 input_file, class_file, instruments):
         if download:
             main_download(dataset, type, download_from, outputdir, unpack, remove)
         self.tracks, self.tags, self.extra = commons.read_file(input_file)
         self.class_file = class_file
-        self.sample_rate = sample_rate
         self.output_dir = outputdir
+        self.instruments = instruments
 
     def __len__(self):
         return len(self.tracks)
@@ -161,9 +161,12 @@ class MTGJamendo(ClassConditionalDataset):
 
     @property
     def class_list(self) -> List[str]:
-        with open(self.class_file) as f:
-            lines = f.read().splitlines()
-        return lines
+        if self.instruments is None:
+            with open(self.class_file) as f:
+                lines = f.read().splitlines()
+            return lines
+        else:
+            return self.instruments
 
     @property
     def class_to_indices(self) -> Dict[str, List[int]]:
@@ -188,10 +191,9 @@ class MTGJamendo(ClassConditionalDataset):
 @click.option('--remove', default=True, help='argument for download')
 @click.argument('input_file', default='mtg_jamendo_dataset/data/autotagging_moodtheme.tsv')
 @click.argument('class_file_path', default='mtg_jamendo_dataset/data/tags/moodtheme.txt')
-@click.argument('sample_rate', default='16000')
-def main(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path, sample_rate):
+def main(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path):
     dataset = MTGJamendo(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path,
-                         sample_rate)
+                         None)
     print(len(dataset))
     print(dataset.class_list)
     # print(dataset[5])

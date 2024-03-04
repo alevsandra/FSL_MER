@@ -13,7 +13,7 @@ if __name__ == '__main__':
                          True,
                          '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
                          '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
-                         sample_rate)
+                         None)
 
     episodes = EpisodeDataset(
         dataset,
