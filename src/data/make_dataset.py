@@ -1,11 +1,13 @@
 import click
 import random
 import torch
+import os
+import pandas as pd
 from torch.utils.data import Dataset
 from src.data.MTG_Jamendo.download import main_download
 from src.data.mtg_jamendo_dataset.scripts import commons
 from typing import List, Dict, Any, Tuple
-from src.data.utils import load_audio, collate_list_of_dicts
+from src.data.utils import load_audio, collate_list_of_dicts, download_dataset
 
 
 class ClassConditionalDataset(Dataset):
@@ -142,13 +144,13 @@ class EpisodeDataset(Dataset):
 class MTGJamendo(ClassConditionalDataset):
     def __init__(self, download,
                  dataset, type, download_from, outputdir, unpack, remove,
-                 input_file, class_file, instruments):
+                 input_file, class_file, classes):
         if download:
             main_download(dataset, type, download_from, outputdir, unpack, remove)
         self.tracks, self.tags, self.extra = commons.read_file(input_file)
         self.class_file = class_file
         self.output_dir = outputdir
-        self.instruments = instruments
+        self.classes = classes
 
     def __len__(self):
         return len(self.tracks)
@@ -161,12 +163,12 @@ class MTGJamendo(ClassConditionalDataset):
 
     @property
     def class_list(self) -> List[str]:
-        if self.instruments is None:
+        if self.classes is None:
             with open(self.class_file) as f:
                 lines = f.read().splitlines()
             return lines
         else:
-            return self.instruments
+            return self.classes
 
     @property
     def class_to_indices(self) -> Dict[str, List[int]]:
@@ -180,6 +182,31 @@ class MTGJamendo(ClassConditionalDataset):
             class_indices[label] = list(indices_set)
         return class_indices
 
+
+class PMEmo(ClassConditionalDataset):
+    def __init__(self, download, classes):
+        if download:
+            pme_mo_data_url = 'https://drive.google.com/uc?id=1UzC3NCDj30j9Ba7i5lkMzWO5gFqSr0OJ'
+            pme_mo_readme_url = 'https://drive.google.com/uc?id=1KQ0zjRiBQynnHyVPU7DGpUWvtPmCBOcq'
+            download_dataset(pme_mo_readme_url, "PMEmo", "README.txt", False)
+            download_dataset(pme_mo_data_url, "PMEmo", "PMEmo2019.zip", True)
+        self.classes = classes
+        self.annotations_csv = os.path.join('../../data/raw/PMEmo2019/annotations/', 'static_annotations.csv')
+        self.static_annotations = pd.read_csv(self.annotations_csv, index_col=0)
+
+    def __len__(self):
+        pass
+
+    def __getitem__(self, index):
+        pass
+
+    @property
+    def class_list(self) -> List[str]:
+        return self.classes
+
+    @property
+    def class_to_indices(self) -> Dict[str, List[int]]:
+        return {}
 
 @click.command()
 @click.option('--download', default=False)
