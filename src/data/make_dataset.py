@@ -1,13 +1,13 @@
 import click
 import random
-import torch
-import os
 import pandas as pd
 from torch.utils.data import Dataset
 from src.data.MTG_Jamendo.download import main_download
 from src.data.mtg_jamendo_dataset.scripts import commons
 from typing import List, Dict, Any, Tuple
-from src.data.utils import load_audio, collate_list_of_dicts, download_dataset
+from src.data.utils import *
+
+ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
 
 class ClassConditionalDataset(Dataset):
@@ -98,6 +98,9 @@ class EpisodeDataset(Dataset):
             # grab the dataset indices for this class
             all_indices = self.dataset.class_to_indices[c]
 
+            if not len(all_indices) > 0:
+                continue
+
             # sample the support and query sets for this class
             indices = rng.sample(all_indices, self.n_support + self.n_query)
             items = [self.dataset[i] for i in indices]
@@ -157,7 +160,7 @@ class MTGJamendo(ClassConditionalDataset):
 
     def __getitem__(self, index):
         item = self.tracks[index]
-        data = load_audio(self.output_dir + "/" + item['path'].replace(".mp3", ".npy"))
+        data = load_melspectrogram(self.output_dir + "/" + item['path'].replace(".mp3", ".npy"))
         data["label"] = item['tags']
         return data
 
@@ -191,14 +194,19 @@ class PMEmo(ClassConditionalDataset):
             download_dataset(pme_mo_readme_url, "PMEmo", "README.txt", False)
             download_dataset(pme_mo_data_url, "PMEmo", "PMEmo2019.zip", True)
         self.classes = classes
-        self.annotations_csv = os.path.join('../../data/raw/PMEmo2019/annotations/', 'static_annotations.csv')
-        self.static_annotations = pd.read_csv(self.annotations_csv, index_col=0)
+        self.annotations_csv = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/annotations/', 'static_annotations.csv')
+        self.static_annotations = pd.read_csv(self.annotations_csv)
+        for index, row in self.static_annotations.iterrows():
+            self.static_annotations.at[index, 'label'] = assign_octant_label(row['Arousal(mean)'], row['Valence(mean)'])
 
     def __len__(self):
-        pass
+        return self.static_annotations.shape[0]
 
     def __getitem__(self, index):
-        pass
+        annotations = self.static_annotations[self.static_annotations['musicId'] == index]
+        item = load_audio(index, 11)
+        item['label'] = annotations['label'].values[0]
+        return item
 
     @property
     def class_list(self) -> List[str]:
@@ -206,7 +214,12 @@ class PMEmo(ClassConditionalDataset):
 
     @property
     def class_to_indices(self) -> Dict[str, List[int]]:
-        return {}
+        class_indices = {}
+        for label in self.class_list:
+            items = self.static_annotations[self.static_annotations['label'] == label]
+            class_indices[label] = items['musicId'].to_list()
+        return class_indices
+
 
 @click.command()
 @click.option('--download', default=False)
@@ -218,7 +231,7 @@ class PMEmo(ClassConditionalDataset):
 @click.option('--remove', default=True, help='argument for download')
 @click.argument('input_file', default='mtg_jamendo_dataset/data/autotagging_moodtheme.tsv')
 @click.argument('class_file_path', default='mtg_jamendo_dataset/data/tags/moodtheme.txt')
-def main(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path):
+def main_mtg(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path):
     dataset = MTGJamendo(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path,
                          None)
     print(len(dataset))
@@ -237,5 +250,21 @@ def main(download, dataset, type, download_from, outputdir, unpack, remove, inpu
     episodes.print_episode(support, query)
 
 
+def main_pme():
+    p = PMEmo(False, ["O1", "O2", "O4", "O5", 'O6', 'O8'])  # O3 and O7 are blank
+    print(p[1])
+    # print(p.class_to_indices)
+    episodes = EpisodeDataset(
+        p,
+        n_way=5,
+        n_support=5,
+        n_query=20,
+        n_episodes=100,
+    )
+
+    support, query = episodes[0]
+    episodes.print_episode(support, query)
+
+
 if __name__ == '__main__':
-    main()
+    main_pme()
