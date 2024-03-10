@@ -15,7 +15,6 @@ class PMEmoConvBlock(nn.Module):
         x = self.conv(x)
         x = self.gn(x)
         x = self.relu(x)
-        print(x.shape)
         x = self.maxpool(x)
         return x
 

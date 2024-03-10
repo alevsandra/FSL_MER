@@ -253,7 +253,8 @@ def main_mtg(download, dataset, type, download_from, outputdir, unpack, remove, 
 def main_pme():
     p = PMEmo(False, ["O1", "O2", "O4", "O5", 'O6', 'O8'])  # O3 and O7 are blank
     print(p[1])
-    # print(p.class_to_indices)
+    for key, item in p.class_to_indices.items():
+        print(key, len(item))
     episodes = EpisodeDataset(
         p,
         n_way=5,
