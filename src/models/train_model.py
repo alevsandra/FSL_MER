@@ -1,11 +1,12 @@
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
-from mtg_architecture import Backbone, PrototypicalNet, FewShotLearner
-from src.data.make_dataset import MTGJamendo, EpisodeDataset
+from common_architecture import PrototypicalNet, FewShotLearner
+from src.data.make_dataset import MTGJamendo, EpisodeDataset, PMEmo
+from mtg_architecture import Backbone
 
 
-if __name__ == '__main__':
+def train_mtg():
     sample_rate = 16000  # sample rate of the audio
     n_way = 5  # number of classes per episode
     n_support = 5  # number of support examples per class
@@ -15,49 +16,49 @@ if __name__ == '__main__':
     num_workers = 10  # number of workers to use for data loading
 
     TRAIN_INSTRUMENTS = [
-        'mood/theme---ambiental',
-        'mood/theme---background',
-        'mood/theme---ballad',
-        'mood/theme---calm',
-        'mood/theme---cool',
-        'mood/theme---dark',
-        'mood/theme---deep',
-        'mood/theme---dramatic',
-        'mood/theme---dream',
-        'mood/theme---emotional',
-        'mood/theme---energetic',
-        'mood/theme---epic',
-        'mood/theme---fast',
-        'mood/theme---fun',
-        'mood/theme---funny',
-        'mood/theme---groovy',
-        'mood/theme---happy',
-        'mood/theme---heavy',
-        'mood/theme---hopeful',
-        'mood/theme---horror',
-        'mood/theme---inspiring',
-        'mood/theme---love',
-        'mood/theme---meditative',
-        'mood/theme---melancholic',
-        'mood/theme---mellow',
-        'mood/theme---melodic',
-        'mood/theme---motivational',
-        'mood/theme---nature',
-        'mood/theme---party',
-        'mood/theme---positive',
-        'mood/theme---powerful',
-        'mood/theme---relaxing',
-        'mood/theme---retro',
-        'mood/theme---romantic',
-        'mood/theme---sad',
+        'ambiental',
+        'background',
+        'ballad',
+        'calm',
+        'cool',
+        'dark',
+        'deep',
+        'dramatic',
+        'dream',
+        'emotional',
+        'energetic',
+        'epic',
+        'fast',
+        'fun',
+        'funny',
+        'groovy',
+        'happy',
+        'heavy',
+        'hopeful',
+        'horror',
+        'inspiring',
+        'love',
+        'meditative',
+        'melancholic',
+        'mellow',
+        'melodic',
+        'motivational',
+        'nature',
+        'party',
+        'positive',
+        'powerful',
+        'relaxing',
+        'retro',
+        'romantic',
+        'sad',
     ]
 
     TEST_INSTRUMENTS = [
-        'mood/theme---slow',
-        'mood/theme---soft',
-        'mood/theme---soundscape',
-        'mood/theme---upbeat',
-        'mood/theme---uplifting'
+        'slow',
+        'soft',
+        'soundscape',
+        'upbeat',
+        'uplifting'
     ]
 
     train_data = MTGJamendo(False,

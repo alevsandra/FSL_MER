@@ -102,7 +102,7 @@ class EpisodeDataset(Dataset):
                 continue
 
             # sample the support and query sets for this class
-            indices = rng.sample(all_indices, self.n_support + self.n_query)
+            indices = random.choices([*all_indices], k=self.n_support + self.n_query)
             items = [self.dataset[i] for i in indices]
 
             # add the class label to each item
@@ -156,7 +156,13 @@ class MTGJamendo(ClassConditionalDataset):
         self.classes = classes
 
     def __len__(self):
-        return len(self.tracks)
+        length = 0
+        for k, v in self.tracks.items():
+            for label in v['tags']:
+                if label[13:] in self.classes:
+                    length += 1
+                    break
+        return length
 
     def __getitem__(self, index):
         item = self.tracks[index]
@@ -175,15 +181,7 @@ class MTGJamendo(ClassConditionalDataset):
 
     @property
     def class_to_indices(self) -> Dict[str, List[int]]:
-        class_indices = {}
-        indices_set = set()
-        for label in self.class_list:
-            indices_set.clear()
-            for key, value in self.tracks.items():
-                if label in value['tags']:
-                    indices_set.add(key)
-            class_indices[label] = list(indices_set)
-        return class_indices
+        return self.tags['mood/theme']
 
 
 class PMEmo(ClassConditionalDataset):
@@ -200,7 +198,8 @@ class PMEmo(ClassConditionalDataset):
             self.static_annotations.at[index, 'label'] = assign_octant_label(row['Arousal(mean)'], row['Valence(mean)'])
 
     def __len__(self):
-        return self.static_annotations.shape[0]
+        df = self.static_annotations[self.static_annotations['label'].isin(self.class_list)]
+        return df.shape[0]
 
     def __getitem__(self, index):
         annotations = self.static_annotations[self.static_annotations['musicId'] == index]
@@ -232,12 +231,16 @@ class PMEmo(ClassConditionalDataset):
 @click.argument('input_file', default='mtg_jamendo_dataset/data/autotagging_moodtheme.tsv')
 @click.argument('class_file_path', default='mtg_jamendo_dataset/data/tags/moodtheme.txt')
 def main_mtg(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path):
+    TRAIN_CLASSES = ['ambiental', 'background', 'ballad', 'calm', 'cool', 'dark', 'deep', 'dramatic', 'dream',
+                     'emotional', 'energetic', 'epic', 'fast', 'fun', 'funny', 'groovy', 'happy', 'heavy', 'hopeful',
+                     'horror', 'inspiring', 'love', 'meditative', 'melancholic', 'mellow', 'melodic', 'motivational',
+                     'nature', 'party', 'positive', 'powerful', 'relaxing', 'retro', 'romantic', 'sad']
     dataset = MTGJamendo(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path,
-                         None)
+                         TRAIN_CLASSES)
     print(len(dataset))
     print(dataset.class_list)
     # print(dataset[5])
-    print(dataset.class_to_indices['mood/theme---uplifting'])
+    print(dataset.class_to_indices['romantic'])
     episodes = EpisodeDataset(
         dataset,
         n_way=5,
@@ -253,6 +256,7 @@ def main_mtg(download, dataset, type, download_from, outputdir, unpack, remove, 
 def main_pme():
     p = PMEmo(False, ["O1", "O2", "O4", "O5", 'O6', 'O8'])  # O3 and O7 are blank
     print(p[1])
+    print(len(p))
     for key, item in p.class_to_indices.items():
         print(key, len(item))
     episodes = EpisodeDataset(
@@ -268,4 +272,4 @@ def main_pme():
 
 
 if __name__ == '__main__':
-    main_pme()
+    main_mtg()
