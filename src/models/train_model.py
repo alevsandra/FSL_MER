@@ -16,41 +16,60 @@ def train_mtg():
     num_workers = 10  # number of workers to use for data loading
 
     TRAIN_INSTRUMENTS = [
-        'ambiental',
-        'background',
-        'ballad',
-        'calm',
-        'cool',
-        'dark',
-        'deep',
-        'dramatic',
-        'dream',
-        'emotional',
+        'happy',
+        'film',
         'energetic',
+        'relaxing',
+        'emotional',
+        'melodic',
+        'dark',
         'epic',
-        'fast',
+        'dream',
+        'love',
+        'inspiring',
+        'sad',
+        'meditative',
+        'advertising',
+        'motivational',
+        'deep',
+        'romantic',
+        'christmas',
+        'documentary',
+        'corporate',
+        'positive',
+        'summer',
+        'space',
+        'background',
         'fun',
+        'ambiental',
+        'calm',
+        'children',
+        'adventure',
+        'melancholic',
+        'commercial',
+        'drama',
+        'movie',
+        'action',
+        'ballad',
+        'dramatic',
+        'sport',
+        'trailer',
+        'party',
+        'game',
+        'nature',
+        'cool',
+        'powerful',
+        'hopeful',
+        'retro',
         'funny',
         'groovy',
-        'happy',
-        'heavy',
-        'hopeful',
+        'holiday',
+        'travel',
         'horror',
-        'inspiring',
-        'love',
-        'meditative',
-        'melancholic',
+        'heavy',
         'mellow',
-        'melodic',
-        'motivational',
-        'nature',
-        'party',
-        'positive',
-        'powerful',
-        'relaxing',
-        'retro',
-        'romantic',
-        'sad',
+        'sexy',
+        'fast'
     ]
 
     TEST_INSTRUMENTS = [
@@ -115,3 +134,58 @@ def train_mtg():
     )
 
     trainer.fit(learner, train_loader, val_dataloaders=val_loader)
+
+
+def train_pmemo():
+    sr = 44100  # sample rate of the audio
+    n_way = 4  # number of classes per episode
+    n_support = 4  # number of support examples per class
+    n_query = 20  # number of samples per class to use as query
+    n_train_episodes = int(50000)  # number of episodes to generate for training
+    n_val_episodes = 100  # number of episodes to generate for validation
+    num_workers = 2  # number of workers to use for data loading
+
+    TRAIN_CLASSES = ["O1", "O2", "O8", "O5"]
+
+    TEST_CLASSES = ['O6', 'O4']
+
+    train_data = PMEmo(False, TRAIN_CLASSES)
+
+    val_data = PMEmo(False, TEST_CLASSES)
+
+    train_episodes = EpisodeDataset(
+        dataset=train_data,
+        n_way=n_way,
+        n_support=n_support,
+        n_query=n_query,
+        n_episodes=n_train_episodes
+    )
+
+    val_episodes = EpisodeDataset(
+        dataset=val_data,
+        n_way=n_way / 2,
+        n_support=n_support / 2,
+        n_query=n_query,
+        n_episodes=n_val_episodes / 2
+    )
+
+    train_loader = DataLoader(train_episodes, batch_size=None, num_workers=num_workers)
+    val_loader = DataLoader(val_episodes, batch_size=None, num_workers=num_workers, persistent_workers=True)
+
+    backbone = Backbone(sr)
+    protonet = PrototypicalNet(backbone)
+
+    learner = FewShotLearner(protonet, num_classes=len(TRAIN_CLASSES))
+
+    trainer = pl.Trainer(
+        accelerator="auto",
+        max_epochs=1,
+        log_every_n_steps=1,
+        val_check_interval=50
+    )
+
+    trainer.fit(learner, train_loader, val_dataloaders=val_loader)
+
+
+if __name__ == '__main__':
+    train_pmemo()
