@@ -189,13 +189,13 @@ class PMEmo(ClassConditionalDataset):
         if download:
             pme_mo_data_url = 'https://drive.google.com/uc?id=1UzC3NCDj30j9Ba7i5lkMzWO5gFqSr0OJ'
             pme_mo_readme_url = 'https://drive.google.com/uc?id=1KQ0zjRiBQynnHyVPU7DGpUWvtPmCBOcq'
-            download_dataset(pme_mo_readme_url, "PMEmo", "README.txt", False)
-            download_dataset(pme_mo_data_url, "PMEmo", "PMEmo2019.zip", True)
+            download_dataset(pme_mo_readme_url, "PMEmo", "README.txt", False, True)
+            download_dataset(pme_mo_data_url, "PMEmo", "PMEmo2019.zip", True, True)
         self.classes = classes
         self.annotations_csv = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/annotations/', 'static_annotations.csv')
         self.static_annotations = pd.read_csv(self.annotations_csv)
         for index, row in self.static_annotations.iterrows():
-            self.static_annotations.at[index, 'label'] = assign_octant_label(row['Arousal(mean)'], row['Valence(mean)'])
+            self.static_annotations.at[index, 'label'] = assign_label(row['Arousal(mean)'], row['Valence(mean)'], True)
 
     def __len__(self):
         df = self.static_annotations[self.static_annotations['label'].isin(self.class_list)]
@@ -203,7 +203,8 @@ class PMEmo(ClassConditionalDataset):
 
     def __getitem__(self, index):
         annotations = self.static_annotations[self.static_annotations['musicId'] == index]
-        item = load_audio(index, 11)
+        audio_path = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/chorus/', str(index) + '.mp3')
+        item = load_audio(audio_path, 11)
         item['label'] = annotations['label'].values[0]
         return item
 
@@ -219,6 +220,87 @@ class PMEmo(ClassConditionalDataset):
             class_indices[label] = items['musicId'].to_list()
         return class_indices
 
+
+class TROMPA_MER(ClassConditionalDataset):
+    def __init__(self, download, classes):
+        if download:
+            spectrograms = 'https://drive.google.com/uc?id=1xp2YnDCAfsAn_H7t38B-RInrhwuD6NjX'
+            annotations = 'https://raw.githubusercontent.com/juansgomez87/vis-mtg-mer/main/data/summary.csv'
+            download_dataset(annotations, "TROMPA_MER", "summary.csv", False, False)
+            download_dataset(spectrograms, "TROMPA_MER", "spectrograms.zip", True, True)
+        self.classes = classes
+        self.annotations_csv = os.path.join(ROOT_DIR, 'data/external/TROMPA_MER/summary.csv')
+        self.annotations = pd.read_csv(self.annotations_csv, index_col=0, sep='\t')
+        for index, row in self.annotations.iterrows():
+            self.annotations.at[index, 'label'] = assign_label(row['norm_energy'], row['norm_valence'], False)
+
+    def __len__(self):
+        df = self.annotations[self.annotations['label'].isin(self.class_list)]
+        return df.shape[0]
+
+    def __getitem__(self, index):
+        annotations = self.annotations.iloc[[index]]
+        track_name = annotations['cdr_track_num'].values[0]
+        item = load_melspectrogram('data/raw/spectrograms/' + str(track_name) + '-sample.npy')
+        item['label'] = annotations['label'].values[0]
+        return item
+
+    @property
+    def class_list(self) -> List[str]:
+        return self.classes
+
+    @property
+    def class_to_indices(self) -> Dict[str, List[int]]:
+        class_indices = {}
+        for label in self.class_list:
+            items = self.annotations[self.annotations['label'] == label]
+            class_indices[label] = items.index.values.tolist()
+        return class_indices
+
+
+class DEAM(ClassConditionalDataset):
+    def __init__(self, download, classes):
+        if download:
+            audio = 'http://cvml.unige.ch/databases/DEAM/DEAM_audio.zip'
+            annotations = 'http://cvml.unige.ch/databases/DEAM/DEAM_Annotations.zip'
+            download_dataset(annotations, "DEAM", "DEAM_Annotations.zip", True, False)
+            download_dataset(audio, "DEAM", "DEAM_audio.zip", True, False)
+        self.classes = classes
+
+        arousal_annotations_path = 'data/raw/annotations/annotations averaged per song/dynamic (per second annotations)/arousal.csv'
+        valence_annotations_path = 'data/raw/annotations/annotations averaged per song/dynamic (per second annotations)/valence.csv'
+        self.arousal_annotations_csv = os.path.join(ROOT_DIR, arousal_annotations_path)
+        self.valence_annotations_csv = os.path.join(ROOT_DIR, valence_annotations_path)
+        self.annotations = pd.read_csv(self.arousal_annotations_csv, index_col=0)
+        self.valence_annotations = pd.read_csv(self.valence_annotations_csv, index_col=0)
+        self.annotations['arousal(mean)'] = self.annotations.mean(axis=1)
+        self.valence_annotations['valence(mean)'] = self.valence_annotations.mean(axis=1)
+        self.annotations['valence(mean)'] = self.valence_annotations['valence(mean)']
+        for index, row in self.annotations.iterrows():
+            self.annotations.at[index, 'label'] = assign_label(row['arousal(mean)'], row['valence(mean)'], False)
+
+    def __len__(self):
+        df = self.annotations[self.annotations['label'].isin(self.class_list)]
+        return df.shape[0]
+
+    def __getitem__(self, index):
+        annotations = self.annotations.iloc[[index]]
+        audio_path = os.path.join(ROOT_DIR, 'data/raw/MEMD_audio/' + str(annotations.index.values[0]) + '.mp3')
+        item = load_audio(audio_path, 30)
+        item['label'] = annotations['label'].values[0]
+        return item
+
+    @property
+    def class_list(self) -> List[str]:
+        return self.classes
+
+    @property
+    def class_to_indices(self) -> Dict[str, List[int]]:
+        class_indices = {}
+        for label in self.class_list:
+            items = self.annotations[self.annotations['label'] == label]
+            class_indices[label] = items.index.values.tolist()
+        return class_indices
 
 @click.command()
 @click.option('--download', default=False)
@@ -254,7 +336,8 @@ def main_mtg(download, dataset, type, download_from, outputdir, unpack, remove, 
 
 
 def main_pme():
-    p = PMEmo(False, ["O1", "O2", "O4", "O5", 'O6', 'O8'])  # O3 and O7 are blank
+    p = PMEmo(False, ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
+                      'tenderness', 'transcendence'])
     print(p[1])
     print(len(p))
     for key, item in p.class_to_indices.items():
@@ -269,6 +352,15 @@ def main_pme():
 
     support, query = episodes[0]
     episodes.print_episode(support, query)
+
+
+def main_trompa():
+    trompa = TROMPA_MER(False, ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
+                                'tenderness', 'transcendence'])
+    print(len(trompa))
+    print(trompa[1])
+    for key, item in trompa.class_to_indices.items():
+        print(key, len(item))
 
 
 if __name__ == '__main__':

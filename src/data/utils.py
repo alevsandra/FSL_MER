@@ -7,17 +7,19 @@ import zipfile
 import torchaudio
 import pandas as pd
 import math
+import urllib.request
 
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
 
 def load_melspectrogram(path) -> Dict:
-    y = torch.from_numpy(np.load(path)[:, :512])
+    full_path = os.path.join(ROOT_DIR, path)
+    y = torch.from_numpy(np.load(full_path)[:, :512])
     return {'audio': y}
 
 
-def load_audio(index, duration) -> Dict:
-    audio_path = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/chorus/', str(index) + '.mp3')
+def load_audio(audio_path, duration) -> Dict:
+    # audio_path = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/chorus/', str(index) + '.mp3')
     waveform, sample_rate = torchaudio.load(audio_path)
     num_samples = int(duration * sample_rate)
     waveform = waveform[:, :num_samples]
@@ -44,11 +46,14 @@ def export_zip_file(zip_path):
         zip_ref.extractall(ROOT_DIR + "/data/raw")
 
 
-def download_dataset(url, dataset_name, file_name, export):
+def download_dataset(url, dataset_name, file_name, export, google):
     full_path = ROOT_DIR + '/data/external/' + dataset_name
     if not os.path.exists(full_path):
         os.makedirs(full_path)
-    gdown.download(url, full_path + "/" + file_name)
+    if google:
+        gdown.download(url, full_path + "/" + file_name)
+    else:
+        urllib.request.urlretrieve(url, full_path + "/" + file_name)
     if export:
         export_zip_file(full_path + "/" + file_name)
 
