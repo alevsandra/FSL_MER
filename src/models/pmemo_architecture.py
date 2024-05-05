@@ -50,7 +50,11 @@ class Backbone(nn.Module):
 
 
 if __name__ == '__main__':
-    dataset = PMEmo(False, ["O1", "O2", "O4", "O5", 'O6', 'O8'])
+    # only non-empty classes
+    dataset = PMEmo(False, ['power', 'surprise', 'tension', 'sadness', 'tenderness', 'transcendence'])
+
+    for key, item in dataset.class_to_indices.items():
+        print(key, len(item))
 
     episodes = EpisodeDataset(
         dataset,

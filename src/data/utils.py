@@ -8,23 +8,33 @@ import torchaudio
 import pandas as pd
 import math
 import urllib.request
+import librosa
 
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
 
 def load_melspectrogram(path) -> Dict:
     full_path = os.path.join(ROOT_DIR, path)
-    y = torch.from_numpy(np.load(full_path)[:, :512])
+    S = np.load(full_path)[:, :691]
+    S = librosa.feature.melspectrogram(S=S, sr=44100)
+    y = torch.from_numpy(S)
     return {'audio': y}
 
 
 def load_audio(audio_path, duration) -> Dict:
-    # audio_path = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/chorus/', str(index) + '.mp3')
     waveform, sample_rate = torchaudio.load(audio_path)
     num_samples = int(duration * sample_rate)
     waveform = waveform[:, :num_samples]
     waveform_mono = torch.mean(waveform, dim=0).unsqueeze(0)
     return {'audio': waveform_mono}
+
+
+def make_melspectrogram(audio_path) -> Dict:
+    y, sr = librosa.load(audio_path)
+    S = np.abs(librosa.stft(y))[:, :691]
+    S = librosa.feature.melspectrogram(S=S, sr=sr)
+    y = torch.from_numpy(S)
+    return {'audio': y}
 
 
 def collate_list_of_dicts(input_set) -> Dict:

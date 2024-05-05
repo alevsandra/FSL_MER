@@ -1,6 +1,5 @@
 import click
 import random
-import pandas as pd
 from torch.utils.data import Dataset
 from src.data.MTG_Jamendo.download import main_download
 from src.data.mtg_jamendo_dataset.scripts import commons
@@ -8,6 +7,14 @@ from typing import List, Dict, Any, Tuple
 from src.data.utils import *
 
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
+pme_mo_data_url = 'https://drive.google.com/uc?id=1UzC3NCDj30j9Ba7i5lkMzWO5gFqSr0OJ'
+pme_mo_readme_url = 'https://drive.google.com/uc?id=1KQ0zjRiBQynnHyVPU7DGpUWvtPmCBOcq'
+
+TROMPA_spectrograms = 'https://drive.google.com/uc?id=1xp2YnDCAfsAn_H7t38B-RInrhwuD6NjX'
+TROMPA_annotations = 'https://raw.githubusercontent.com/juansgomez87/vis-mtg-mer/main/data/summary.csv'
+
+DEAM_audio = 'http://cvml.unige.ch/databases/DEAM/DEAM_audio.zip'
+DEAM_annotations = 'http://cvml.unige.ch/databases/DEAM/DEAM_Annotations.zip'
 
 
 class ClassConditionalDataset(Dataset):
@@ -146,10 +153,10 @@ class EpisodeDataset(Dataset):
 
 class MTGJamendo(ClassConditionalDataset):
     def __init__(self, download,
-                 dataset, type, download_from, outputdir, unpack, remove,
+                 dataset, data_type, download_from, outputdir, unpack, remove,
                  input_file, class_file, classes):
         if download:
-            main_download(dataset, type, download_from, outputdir, unpack, remove)
+            main_download(dataset, data_type, download_from, outputdir, unpack, remove)
         self.tracks, self.tags, self.extra = commons.read_file(input_file)
         self.class_file = class_file
         self.output_dir = outputdir
@@ -166,9 +173,9 @@ class MTGJamendo(ClassConditionalDataset):
 
     def __getitem__(self, index):
         item = self.tracks[index]
-        data = load_melspectrogram(self.output_dir + "/" + item['path'].replace(".mp3", ".npy"))
-        data["label"] = item['tags']
-        return data
+        x = load_melspectrogram(self.output_dir + "/" + item['path'].replace(".mp3", ".npy"))
+        x["label"] = item['tags']
+        return x
 
     @property
     def class_list(self) -> List[str]:
@@ -187,24 +194,22 @@ class MTGJamendo(ClassConditionalDataset):
 class PMEmo(ClassConditionalDataset):
     def __init__(self, download, classes):
         if download:
-            pme_mo_data_url = 'https://drive.google.com/uc?id=1UzC3NCDj30j9Ba7i5lkMzWO5gFqSr0OJ'
-            pme_mo_readme_url = 'https://drive.google.com/uc?id=1KQ0zjRiBQynnHyVPU7DGpUWvtPmCBOcq'
             download_dataset(pme_mo_readme_url, "PMEmo", "README.txt", False, True)
             download_dataset(pme_mo_data_url, "PMEmo", "PMEmo2019.zip", True, True)
         self.classes = classes
         self.annotations_csv = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/annotations/', 'static_annotations.csv')
         self.static_annotations = pd.read_csv(self.annotations_csv)
-        for index, row in self.static_annotations.iterrows():
-            self.static_annotations.at[index, 'label'] = assign_label(row['Arousal(mean)'], row['Valence(mean)'], True)
+        for index, record in self.static_annotations.iterrows():
+            self.static_annotations.at[index, 'label'] = assign_label(record['Arousal(mean)'], record['Valence(mean)'], True)
 
     def __len__(self):
-        df = self.static_annotations[self.static_annotations['label'].isin(self.class_list)]
-        return df.shape[0]
+        filtered_annotations = self.static_annotations[self.static_annotations['label'].isin(self.class_list)]
+        return filtered_annotations.shape[0]
 
     def __getitem__(self, index):
         annotations = self.static_annotations[self.static_annotations['musicId'] == index]
         audio_path = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/chorus/', str(index) + '.mp3')
-        item = load_audio(audio_path, 11)
+        item = make_melspectrogram(audio_path)
         item['label'] = annotations['label'].values[0]
         return item
 
@@ -221,25 +226,23 @@ class PMEmo(ClassConditionalDataset):
         return class_indices
 
 
-class TROMPA_MER(ClassConditionalDataset):
+class TrompaMer(ClassConditionalDataset):
     def __init__(self, download, classes):
         if download:
-            spectrograms = 'https://drive.google.com/uc?id=1xp2YnDCAfsAn_H7t38B-RInrhwuD6NjX'
-            annotations = 'https://raw.githubusercontent.com/juansgomez87/vis-mtg-mer/main/data/summary.csv'
-            download_dataset(annotations, "TROMPA_MER", "summary.csv", False, False)
-            download_dataset(spectrograms, "TROMPA_MER", "spectrograms.zip", True, True)
+            download_dataset(TROMPA_annotations, "TROMPA_MER", "summary.csv", False, False)
+            download_dataset(TROMPA_spectrograms, "TROMPA_MER", "spectrograms.zip", True, True)
         self.classes = classes
         self.annotations_csv = os.path.join(ROOT_DIR, 'data/external/TROMPA_MER/summary.csv')
         self.annotations = pd.read_csv(self.annotations_csv, index_col=0, sep='\t')
-        for index, row in self.annotations.iterrows():
-            self.annotations.at[index, 'label'] = assign_label(row['norm_energy'], row['norm_valence'], False)
+        for index, record in self.annotations.iterrows():
+            self.annotations.at[index, 'label'] = assign_label(record['norm_energy'], record['norm_valence'], False)
 
     def __len__(self):
-        df = self.annotations[self.annotations['label'].isin(self.class_list)]
-        return df.shape[0]
+        filtered_annotations = self.annotations[self.annotations['label'].isin(self.class_list)]
+        return filtered_annotations.shape[0]
 
     def __getitem__(self, index):
-        annotations = self.annotations.iloc[[index]]
+        annotations = self.annotations.loc[[index]]
         track_name = annotations['cdr_track_num'].values[0]
         item = load_melspectrogram('data/raw/spectrograms/' + str(track_name) + '-sample.npy')
         item['label'] = annotations['label'].values[0]
@@ -276,17 +279,17 @@ class DEAM(ClassConditionalDataset):
         self.annotations['arousal(mean)'] = self.annotations.mean(axis=1)
         self.valence_annotations['valence(mean)'] = self.valence_annotations.mean(axis=1)
         self.annotations['valence(mean)'] = self.valence_annotations['valence(mean)']
-        for index, row in self.annotations.iterrows():
-            self.annotations.at[index, 'label'] = assign_label(row['arousal(mean)'], row['valence(mean)'], False)
+        for index, record in self.annotations.iterrows():
+            self.annotations.at[index, 'label'] = assign_label(record['arousal(mean)'], record['valence(mean)'], False)
 
     def __len__(self):
-        df = self.annotations[self.annotations['label'].isin(self.class_list)]
-        return df.shape[0]
+        filtered_annotations = self.annotations[self.annotations['label'].isin(self.class_list)]
+        return filtered_annotations.shape[0]
 
     def __getitem__(self, index):
-        annotations = self.annotations.iloc[[index]]
+        annotations = self.annotations.loc[[index]]
         audio_path = os.path.join(ROOT_DIR, 'data/raw/MEMD_audio/' + str(annotations.index.values[0]) + '.mp3')
-        item = load_audio(audio_path, 30)
+        item = make_melspectrogram(audio_path)
         item['label'] = annotations['label'].values[0]
         return item
 
@@ -302,6 +305,51 @@ class DEAM(ClassConditionalDataset):
             class_indices[label] = items.index.values.tolist()
         return class_indices
 
+
+class JointDataset(ClassConditionalDataset):
+    def __init__(self, download, classes):
+        self.pme_mo = PMEmo(download, classes)
+        self.trompa = TrompaMer(download, classes)
+        self.deam = DEAM(download, classes)
+        pme_mo_dict = pd.DataFrame(
+            {'id': self.pme_mo.static_annotations['musicId'] + 100000, 'label': self.pme_mo.static_annotations['label'],
+             'dataset': 'PMEmo'})
+        trompa_dict = pd.DataFrame(
+            {'id': self.trompa.annotations.index + 10000, 'label': self.trompa.annotations['label'],
+             'dataset': 'TROMPA_MER'})
+        deam_dict = pd.DataFrame(
+            {'id': self.deam.annotations.index, 'label': self.deam.annotations['label'], 'dataset': 'DEAM'})
+        self.annotations = pd.concat([pme_mo_dict, trompa_dict, deam_dict])
+        self.classes = classes
+
+    def __len__(self):
+        annotations_filtered = self.annotations[self.annotations['label'].isin(self.class_list)]
+        return annotations_filtered.shape[0]
+
+    def __getitem__(self, index):
+        annotations = self.annotations[self.annotations['id'] == index]
+        if annotations['dataset'].values[0] == 'PMEmo':
+            item = self.pme_mo[index - 100000]
+        elif annotations['dataset'].values[0] == 'TROMPA_MER':
+            item = self.trompa[index - 10000]
+        else:
+            item = self.deam[index]
+        item['dataset'] = annotations['dataset'].values[0]
+        return item
+
+    @property
+    def class_list(self) -> List[str]:
+        return self.classes
+
+    @property
+    def class_to_indices(self) -> Dict[str, List[int]]:
+        class_indices = {}
+        for label in self.class_list:
+            items = self.annotations[self.annotations['label'] == label]
+            class_indices[label] = items['id'].to_list()
+        return class_indices
+
+
 @click.command()
 @click.option('--download', default=False)
 @click.option('--dataset', default='autotagging_moodtheme', help='argument for download')
@@ -312,12 +360,12 @@ class DEAM(ClassConditionalDataset):
 @click.option('--remove', default=True, help='argument for download')
 @click.argument('input_file', default='mtg_jamendo_dataset/data/autotagging_moodtheme.tsv')
 @click.argument('class_file_path', default='mtg_jamendo_dataset/data/tags/moodtheme.txt')
-def main_mtg(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path):
+def main_mtg(download, dataset, data_type, download_from, outputdir, unpack, remove, input_file, class_file_path):
     TRAIN_CLASSES = ['ambiental', 'background', 'ballad', 'calm', 'cool', 'dark', 'deep', 'dramatic', 'dream',
                      'emotional', 'energetic', 'epic', 'fast', 'fun', 'funny', 'groovy', 'happy', 'heavy', 'hopeful',
                      'horror', 'inspiring', 'love', 'meditative', 'melancholic', 'mellow', 'melodic', 'motivational',
                      'nature', 'party', 'positive', 'powerful', 'relaxing', 'retro', 'romantic', 'sad']
-    dataset = MTGJamendo(download, dataset, type, download_from, outputdir, unpack, remove, input_file, class_file_path,
+    dataset = MTGJamendo(download, dataset, data_type, download_from, outputdir, unpack, remove, input_file, class_file_path,
                          TRAIN_CLASSES)
     print(len(dataset))
     print(dataset.class_list)
@@ -355,8 +403,9 @@ def main_pme():
 
 
 def main_trompa():
-    trompa = TROMPA_MER(False, ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
-                                'tenderness', 'transcendence'])
+    trompa = TrompaMer(False,
+                       ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
+                         'tenderness', 'transcendence'])
     print(len(trompa))
     print(trompa[1])
     for key, item in trompa.class_to_indices.items():
@@ -364,4 +413,8 @@ def main_trompa():
 
 
 if __name__ == '__main__':
-    main_mtg()
+    # main_pme()
+    deam = DEAM(False,
+                ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
+                 'tenderness', 'transcendence'])
+    print(deam[1])
