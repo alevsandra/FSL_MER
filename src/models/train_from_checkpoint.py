@@ -13,6 +13,7 @@ TEST_CLASSES = ['fear', 'peace', 'tenderness', 'anger', 'tension']
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+
 def train_from_checkpoint(checkpoint_path, wandb_id):
     n_way = 5  # number of classes per episode
     n_support = 5  # number of support examples per class
