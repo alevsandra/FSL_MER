@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from common_architecture import PrototypicalNet, FewShotLearner
 from src.data.make_dataset import MTGJamendo, EpisodeDataset
-from mtg_architecture import Backbone
+from backbone_model import BackboneMTG
 
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
@@ -83,12 +83,7 @@ if __name__ == '__main__':
     ]
 
     val_data = MTGJamendo(False,
-                          'autotagging_moodtheme',
-                          'melspecs',
-                          'mtg-fast',
                           'D:/magisterka-dane',
-                          True,
-                          True,
                           '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
                           '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
                           TEST_CLASSES)
@@ -103,7 +98,7 @@ if __name__ == '__main__':
 
     val_loader = DataLoader(val_episodes, batch_size=None, num_workers=num_workers, persistent_workers=True)
 
-    backbone = Backbone()
+    backbone = BackboneMTG()
     protonet = PrototypicalNet(backbone)
 
     learner = FewShotLearner.load_from_checkpoint(checkpoint_path=checkpoint_path, protonet=protonet)

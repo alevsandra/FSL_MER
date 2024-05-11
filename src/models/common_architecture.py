@@ -72,7 +72,6 @@ class PrototypicalNet(nn.Module):
 
 
 class FewShotLearner(pl.LightningModule):
-
     def __init__(self,
                  protonet: nn.Module,
                  num_classes,
@@ -83,6 +82,7 @@ class FewShotLearner(pl.LightningModule):
         self.protonet = protonet
         self.learning_rate = learning_rate
         self.num_classes = num_classes
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
         self.loss = nn.CrossEntropyLoss()
         self.metrics = nn.ModuleDict({
@@ -90,8 +90,8 @@ class FewShotLearner(pl.LightningModule):
         })
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        return self.optimizer
 
     def step(self, batch, batch_idx, tag: str):
         support, query = batch

@@ -1,10 +1,11 @@
 import click
 import random
 from torch.utils.data import Dataset
-from src.data.MTG_Jamendo.download import main_download
+from src.data.download_mtg import main_download
 from src.data.mtg_jamendo_dataset.scripts import commons
 from typing import List, Dict, Any, Tuple
 from src.data.utils import *
+import pandas as pd
 
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 pme_mo_data_url = 'https://drive.google.com/uc?id=1UzC3NCDj30j9Ba7i5lkMzWO5gFqSr0OJ'
@@ -152,11 +153,9 @@ class EpisodeDataset(Dataset):
 
 
 class MTGJamendo(ClassConditionalDataset):
-    def __init__(self, download,
-                 dataset, data_type, download_from, outputdir, unpack, remove,
-                 input_file, class_file, classes):
+    def __init__(self, download, outputdir, input_file, class_file, classes):
         if download:
-            main_download(dataset, data_type, download_from, outputdir, unpack, remove)
+            main_download(outputdir)
         self.tracks, self.tags, self.extra = commons.read_file(input_file)
         self.class_file = class_file
         self.output_dir = outputdir
@@ -173,7 +172,7 @@ class MTGJamendo(ClassConditionalDataset):
 
     def __getitem__(self, index):
         item = self.tracks[index]
-        x = load_melspectrogram(self.output_dir + "/" + item['path'].replace(".mp3", ".npy"))
+        x = load_mtg_melspectrogram(self.output_dir + "/" + item['path'].replace(".mp3", ".npy"))
         x["label"] = item['tags']
         return x
 
@@ -200,7 +199,8 @@ class PMEmo(ClassConditionalDataset):
         self.annotations_csv = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/annotations/', 'static_annotations.csv')
         self.static_annotations = pd.read_csv(self.annotations_csv)
         for index, record in self.static_annotations.iterrows():
-            self.static_annotations.at[index, 'label'] = assign_label(record['Arousal(mean)'], record['Valence(mean)'], True)
+            self.static_annotations.at[index, 'label'] = assign_label(record['Arousal(mean)'], record['Valence(mean)'],
+                                                                      True)
 
     def __len__(self):
         filtered_annotations = self.static_annotations[self.static_annotations['label'].isin(self.class_list)]
@@ -264,10 +264,8 @@ class TrompaMer(ClassConditionalDataset):
 class DEAM(ClassConditionalDataset):
     def __init__(self, download, classes):
         if download:
-            audio = 'http://cvml.unige.ch/databases/DEAM/DEAM_audio.zip'
-            annotations = 'http://cvml.unige.ch/databases/DEAM/DEAM_Annotations.zip'
-            download_dataset(annotations, "DEAM", "DEAM_Annotations.zip", True, False)
-            download_dataset(audio, "DEAM", "DEAM_audio.zip", True, False)
+            download_dataset(DEAM_annotations, "DEAM", "DEAM_Annotations.zip", True, False)
+            download_dataset(DEAM_audio, "DEAM", "DEAM_audio.zip", True, False)
         self.classes = classes
 
         arousal_annotations_path = 'data/raw/annotations/annotations averaged per song/dynamic (per second annotations)/arousal.csv'
@@ -329,13 +327,11 @@ class JointDataset(ClassConditionalDataset):
     def __getitem__(self, index):
         annotations = self.annotations[self.annotations['id'] == index]
         if annotations['dataset'].values[0] == 'PMEmo':
-            item = self.pme_mo[index - 100000]
+            return self.pme_mo[index - 100000]
         elif annotations['dataset'].values[0] == 'TROMPA_MER':
-            item = self.trompa[index - 10000]
+            return self.trompa[index - 10000]
         else:
-            item = self.deam[index]
-        item['dataset'] = annotations['dataset'].values[0]
-        return item
+            return self.deam[index]
 
     @property
     def class_list(self) -> List[str]:
@@ -352,21 +348,15 @@ class JointDataset(ClassConditionalDataset):
 
 @click.command()
 @click.option('--download', default=False)
-@click.option('--dataset', default='autotagging_moodtheme', help='argument for download')
-@click.option('--type', default='melspecs', help='argument for download')
-@click.option('--download_from', default='mtg-fast', help='argument for download')
 @click.option('--outputdir', default='D:/magisterka-dane', help='argument for download')
-@click.option('--unpack', default=True, help='argument for download')
-@click.option('--remove', default=True, help='argument for download')
 @click.argument('input_file', default='mtg_jamendo_dataset/data/autotagging_moodtheme.tsv')
 @click.argument('class_file_path', default='mtg_jamendo_dataset/data/tags/moodtheme.txt')
-def main_mtg(download, dataset, data_type, download_from, outputdir, unpack, remove, input_file, class_file_path):
+def main_mtg(download, outputdir, input_file, class_file_path):
     TRAIN_CLASSES = ['ambiental', 'background', 'ballad', 'calm', 'cool', 'dark', 'deep', 'dramatic', 'dream',
                      'emotional', 'energetic', 'epic', 'fast', 'fun', 'funny', 'groovy', 'happy', 'heavy', 'hopeful',
                      'horror', 'inspiring', 'love', 'meditative', 'melancholic', 'mellow', 'melodic', 'motivational',
                      'nature', 'party', 'positive', 'powerful', 'relaxing', 'retro', 'romantic', 'sad']
-    dataset = MTGJamendo(download, dataset, data_type, download_from, outputdir, unpack, remove, input_file, class_file_path,
-                         TRAIN_CLASSES)
+    dataset = MTGJamendo(download, outputdir, input_file, class_file_path, TRAIN_CLASSES)
     print(len(dataset))
     print(dataset.class_list)
     # print(dataset[5])
@@ -390,22 +380,12 @@ def main_pme():
     print(len(p))
     for key, item in p.class_to_indices.items():
         print(key, len(item))
-    episodes = EpisodeDataset(
-        p,
-        n_way=5,
-        n_support=5,
-        n_query=20,
-        n_episodes=100,
-    )
-
-    support, query = episodes[0]
-    episodes.print_episode(support, query)
 
 
 def main_trompa():
     trompa = TrompaMer(False,
                        ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
-                         'tenderness', 'transcendence'])
+                        'tenderness', 'transcendence'])
     print(len(trompa))
     print(trompa[1])
     for key, item in trompa.class_to_indices.items():

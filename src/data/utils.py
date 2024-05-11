@@ -16,8 +16,13 @@ ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 def load_melspectrogram(path) -> Dict:
     full_path = os.path.join(ROOT_DIR, path)
     S = np.load(full_path)[:, :691]
-    S = librosa.feature.melspectrogram(S=S, sr=44100)
+    S = librosa.feature.melspectrogram(S=S, sr=44100, n_mels=32)
     y = torch.from_numpy(S)
+    return {'audio': y}
+
+
+def load_mtg_melspectrogram(path) -> Dict:
+    y = torch.from_numpy(np.load(path)[:, :512])
     return {'audio': y}
 
 
@@ -32,7 +37,7 @@ def load_audio(audio_path, duration) -> Dict:
 def make_melspectrogram(audio_path) -> Dict:
     y, sr = librosa.load(audio_path)
     S = np.abs(librosa.stft(y))[:, :691]
-    S = librosa.feature.melspectrogram(S=S, sr=sr)
+    S = librosa.feature.melspectrogram(S=S, sr=sr, n_mels=32)
     y = torch.from_numpy(S)
     return {'audio': y}
 
