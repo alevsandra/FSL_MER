@@ -1,4 +1,5 @@
 import pytorch_lightning as pl
+import torch.cuda
 import wandb
 from torch.utils.data import DataLoader
 
@@ -132,11 +133,10 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
         learner = FewShotLearner(protonet, num_classes=n_way, learning_rate=lr).to(DEVICE)
 
         wandb_logger = WandbLogger(project=wandb_project, job_type='train', log_model=True)
-        checkpoint_callback = ModelCheckpoint(dirpath='checkpoints/',
-                                              monitor="step",
-                                              mode="max",
-                                              filename=ckpt_filename + '-latest-{lr}-{step}',
-                                              every_n_train_steps=1000)
+        checkpoint_callback = ModelCheckpoint(dirpath='models/',
+                                              monitor="loss/val",
+                                              mode="min",
+                                              filename=ckpt_filename + '-val_loss-{learning_rate}-{step}')
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
         trainer = pl.Trainer(
@@ -149,6 +149,7 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
         )
 
         trainer.fit(learner, train_loader, val_dataloaders=val_loader)
+        torch.cuda.empty_cache()
         wandb.finish()
 
 
@@ -156,7 +157,7 @@ if __name__ == '__main__':
     way = 5  # number of classes per episode
     support = 5  # number of support examples per class
     query = 20  # number of samples per class to use as query
-    no_train_episodes = int(2100)  # number of episodes to generate for training
+    no_train_episodes = int(5000)  # number of episodes to generate for training
     no_val_episodes = 100  # number of episodes to generate for validation
 
     torch.set_float32_matmul_precision('medium')
@@ -170,5 +171,5 @@ if __name__ == '__main__':
     #       'FSL_PMEmo', 'pmemo')
 
     # joint train
-    train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-4, 1e-3, 1e-5],
+    train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-5],
           'FSL_JointDataset', 'joint-dataset')

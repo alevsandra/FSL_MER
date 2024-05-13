@@ -54,8 +54,8 @@ class PrototypicalNet(nn.Module):
         prototypes = support_embeddings.mean(dim=1)
         support["prototypes"] = prototypes
 
-        print("Prototypes Shape: ", prototypes.shape)
-        print("Embeddings Shape: ", query["embeddings"].shape)
+        # print("Prototypes Shape: ", prototypes.shape)
+        # print("Embeddings Shape: ", query["embeddings"].shape)
         # compute the distances between each query and prototype
         distances = torch.cdist(
             query["embeddings"].unsqueeze(0),
