@@ -84,8 +84,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
           ckpt_filename):
-    num_workers = 2  # number of workers to use for data loading
-    sr = 44100  # sample rate of the audio
+    num_workers = 8  # number of workers to use for data loading
 
     if dataset == "MTG":
         train_data = MTGJamendo(download,
@@ -121,7 +120,7 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
         n_episodes=n_val_episodes
     )
 
-    train_loader = DataLoader(train_episodes, batch_size=None, num_workers=num_workers)
+    train_loader = DataLoader(train_episodes, batch_size=None, num_workers=num_workers, persistent_workers=True)
     val_loader = DataLoader(val_episodes, batch_size=None, num_workers=num_workers, persistent_workers=True)
 
     for lr in lr_values:
@@ -133,10 +132,10 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
         learner = FewShotLearner(protonet, num_classes=n_way, learning_rate=lr).to(DEVICE)
 
         wandb_logger = WandbLogger(project=wandb_project, job_type='train', log_model=True)
-        checkpoint_callback = ModelCheckpoint(dirpath='models/',
+        checkpoint_callback = ModelCheckpoint(dirpath='../../models/',
                                               monitor="loss/val",
                                               mode="min",
-                                              filename=ckpt_filename + '-val_loss-{learning_rate}-{step}')
+                                              filename=ckpt_filename + '-val_loss-{lr-Adam:.0E}-{step}')
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
         trainer = pl.Trainer(
@@ -157,7 +156,7 @@ if __name__ == '__main__':
     way = 5  # number of classes per episode
     support = 5  # number of support examples per class
     query = 20  # number of samples per class to use as query
-    no_train_episodes = int(5000)  # number of episodes to generate for training
+    no_train_episodes = int(10000)  # number of episodes to generate for training
     no_val_episodes = 100  # number of episodes to generate for validation
 
     torch.set_float32_matmul_precision('medium')
