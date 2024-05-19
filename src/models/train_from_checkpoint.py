@@ -52,7 +52,7 @@ def train_from_checkpoint(checkpoint_path, wandb_id):
 
     backbone = Backbone()
     protonet = PrototypicalNet(backbone).to(DEVICE)
-    protonet.load_state_dict(checkpoint["model_state_dict"])
+    protonet.load_state_dict(checkpoint["state_dict"], strict=False)
 
     learner = FewShotLearner.load_from_checkpoint(checkpoint_path=checkpoint_path, protonet=protonet).to(DEVICE)
     learner.optimizer.load_state_dict(checkpoint["optimizer_states"][0])
@@ -86,4 +86,5 @@ def train_from_checkpoint(checkpoint_path, wandb_id):
 if __name__ == '__main__':
     chkpt_path = 'checkpoints/joint-dataset-latest-lr=0-step=2000-v2.ckpt'
     run_id = '75cytqfa'
+    torch.set_float32_matmul_precision('medium')
     train_from_checkpoint(chkpt_path, run_id)

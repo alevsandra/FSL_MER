@@ -132,6 +132,12 @@ def assign_octant_label(arousal, valence):
     return octant
 
 
+def batch_device(dictionary, DEVICE):
+    for key, value in dictionary.items():
+        if torch.is_tensor(value):
+            dictionary[key] = value.to(DEVICE)
+
+
 if __name__ == '__main__':
     data = load_melspectrogram('D:/magisterka-dane/' + '00/7400.npy')
     print(data['audio'].shape)
@@ -156,10 +162,12 @@ if __name__ == '__main__':
     for index, row in df.iterrows():
         df.at[index, 'quadrant'] = assign_quarter_label(row['arousal(mean)'], row['valence(mean)'], False)
         df.at[index, 'label'] = assign_label(row['arousal(mean)'], row['valence(mean)'], False)
-    df[['valence(mean)', 'arousal(mean)', 'quadrant', 'label']].to_csv('../../data/processed/deam_mean_quarter.csv', sep='\t')
+    df[['valence(mean)', 'arousal(mean)', 'quadrant', 'label']].to_csv('../../data/processed/deam_mean_quarter.csv',
+                                                                       sep='\t')
 
     # TROMPA-MER label assign
     df = pd.read_csv("../../data/external/TROMPA_MER/summary_anno.csv", index_col=0, sep='\t')
     for index, row in df.iterrows():
         df.at[index, 'label'] = assign_label(row['norm_energy'], row['norm_valence'], False)
-    df[['norm_energy', 'norm_valence', 'quadrant', 'label']].to_csv('../../data/processed/trompa_mer_labels.csv', sep='\t')
+    df[['norm_energy', 'norm_valence', 'quadrant', 'label']].to_csv('../../data/processed/trompa_mer_labels.csv',
+                                                                    sep='\t')
