@@ -83,7 +83,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
-          ckpt_filename):
+          ckpt_filename, padding):
     num_workers = 8  # number of workers to use for data loading
 
     if dataset == "MTG":
@@ -98,11 +98,11 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
                               '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
                               TEST_CLASSES_MTG)
     elif dataset == "Joint":
-        train_data = JointDataset(download, TRAIN_CLASSES)
-        val_data = JointDataset(False, TEST_CLASSES)
+        train_data = JointDataset(download, TRAIN_CLASSES, padding)
+        val_data = JointDataset(False, TEST_CLASSES, padding)
     elif dataset == "PMEmo":
-        train_data = PMEmo(download, TRAIN_CLASSES)
-        val_data = PMEmo(False, TEST_CLASSES)
+        train_data = PMEmo(download, TRAIN_CLASSES, padding)
+        val_data = PMEmo(False, TEST_CLASSES, padding)
 
     train_episodes = EpisodeDataset(
         dataset=train_data,
@@ -171,4 +171,4 @@ if __name__ == '__main__':
 
     # joint train
     train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-5],
-          'FSL_JointDataset', 'joint-dataset')
+          'FSL_JointDataset', 'joint-dataset', True)

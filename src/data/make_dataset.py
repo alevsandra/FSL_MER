@@ -191,11 +191,12 @@ class MTGJamendo(ClassConditionalDataset):
 
 
 class PMEmo(ClassConditionalDataset):
-    def __init__(self, download, classes):
+    def __init__(self, download, classes, padding=False):
         if download:
             download_dataset(pme_mo_readme_url, "PMEmo", "README.txt", False, True)
             download_dataset(pme_mo_data_url, "PMEmo", "PMEmo2019.zip", True, True)
         self.classes = classes
+        self.padding = padding
         self.annotations_csv = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/annotations/', 'static_annotations.csv')
         self.static_annotations = pd.read_csv(self.annotations_csv)
         for index, record in self.static_annotations.iterrows():
@@ -209,7 +210,7 @@ class PMEmo(ClassConditionalDataset):
     def __getitem__(self, index):
         annotations = self.static_annotations[self.static_annotations['musicId'] == index]
         audio_path = os.path.join(ROOT_DIR, 'data/raw/PMEmo2019/chorus/', str(index) + '.mp3')
-        item = make_melspectrogram(audio_path)
+        item = make_melspectrogram(audio_path, self.padding)
         item['label'] = annotations['label'].values[0]
         return item
 
@@ -227,11 +228,12 @@ class PMEmo(ClassConditionalDataset):
 
 
 class TrompaMer(ClassConditionalDataset):
-    def __init__(self, download, classes):
+    def __init__(self, download, classes, padding=False):
         if download:
             download_dataset(TROMPA_annotations, "TROMPA_MER", "summary.csv", False, False)
             download_dataset(TROMPA_spectrograms, "TROMPA_MER", "spectrograms.zip", True, True)
         self.classes = classes
+        self.padding = padding
         self.annotations_csv = os.path.join(ROOT_DIR, 'data/external/TROMPA_MER/summary.csv')
         self.annotations = pd.read_csv(self.annotations_csv, index_col=0, sep='\t')
         for index, record in self.annotations.iterrows():
@@ -244,7 +246,7 @@ class TrompaMer(ClassConditionalDataset):
     def __getitem__(self, index):
         annotations = self.annotations.loc[[index]]
         track_name = annotations['cdr_track_num'].values[0]
-        item = load_melspectrogram('data/raw/spectrograms/' + str(track_name) + '-sample.npy')
+        item = load_melspectrogram('data/raw/spectrograms/' + str(track_name) + '-sample.npy', self.padding)
         item['label'] = annotations['label'].values[0]
         return item
 
@@ -262,11 +264,12 @@ class TrompaMer(ClassConditionalDataset):
 
 
 class DEAM(ClassConditionalDataset):
-    def __init__(self, download, classes):
+    def __init__(self, download, classes, padding=False):
         if download:
             download_dataset(DEAM_annotations, "DEAM", "DEAM_Annotations.zip", True, False)
             download_dataset(DEAM_audio, "DEAM", "DEAM_audio.zip", True, False)
         self.classes = classes
+        self.padding = padding
 
         arousal_annotations_path = 'data/raw/annotations/annotations averaged per song/dynamic (per second annotations)/arousal.csv'
         valence_annotations_path = 'data/raw/annotations/annotations averaged per song/dynamic (per second annotations)/valence.csv'
@@ -287,7 +290,7 @@ class DEAM(ClassConditionalDataset):
     def __getitem__(self, index):
         annotations = self.annotations.loc[[index]]
         audio_path = os.path.join(ROOT_DIR, 'data/raw/MEMD_audio/' + str(annotations.index.values[0]) + '.mp3')
-        item = make_melspectrogram(audio_path)
+        item = make_melspectrogram(audio_path, self.padding)
         item['label'] = annotations['label'].values[0]
         return item
 
@@ -305,10 +308,10 @@ class DEAM(ClassConditionalDataset):
 
 
 class JointDataset(ClassConditionalDataset):
-    def __init__(self, download, classes):
-        self.pme_mo = PMEmo(download, classes)
-        self.trompa = TrompaMer(download, classes)
-        self.deam = DEAM(download, classes)
+    def __init__(self, download, classes, padding=False):
+        self.pme_mo = PMEmo(download, classes, padding)
+        self.trompa = TrompaMer(download, classes, padding)
+        self.deam = DEAM(download, classes, padding)
         pme_mo_dict = pd.DataFrame(
             {'id': self.pme_mo.static_annotations['musicId'] + 100000, 'label': self.pme_mo.static_annotations['label'],
              'dataset': 'PMEmo'})

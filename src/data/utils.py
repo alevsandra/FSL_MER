@@ -13,9 +13,30 @@ import librosa
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
 
-def load_melspectrogram(path) -> Dict:
+def add_padding(array, xx, yy):
+    """
+    :param array: numpy array
+    :param xx: desired height
+    :param yy: desired width
+    :return: padded array
+    """
+    h = array.shape[0]
+    w = array.shape[1]
+    a = max((xx - h) // 2, 0)
+    aa = max(0, xx - a - h)
+    b = max(0, (yy - w) // 2)
+    bb = max(yy - b - w, 0)
+    return np.pad(array, pad_width=((a, aa), (b, bb)), mode='constant')
+
+
+def load_melspectrogram(path, padding=False) -> Dict:
     full_path = os.path.join(ROOT_DIR, path)
-    S = np.load(full_path)[:, :691]
+    if padding:
+        S = np.load(full_path)
+        if S.shape[1] < 9453:
+            S = add_padding(S, S.shape[0], 9453)
+    else:
+        S = np.load(full_path)[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=44100, n_mels=32)
     y = torch.from_numpy(S)
     return {'audio': y}
@@ -34,9 +55,14 @@ def load_audio(audio_path, duration) -> Dict:
     return {'audio': waveform_mono}
 
 
-def make_melspectrogram(audio_path) -> Dict:
+def make_melspectrogram(audio_path, padding=False) -> Dict:
     y, sr = librosa.load(audio_path)
-    S = np.abs(librosa.stft(y))[:, :691]
+    if padding:
+        S = np.abs(librosa.stft(y))
+        if S.shape[1] < 9453:
+            S = add_padding(S, S.shape[0], 9453)
+    else:
+        S = np.abs(librosa.stft(y))[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=sr, n_mels=32)
     y = torch.from_numpy(S)
     return {'audio': y}
