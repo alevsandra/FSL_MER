@@ -35,6 +35,8 @@ def load_melspectrogram(path, padding=False) -> Dict:
         S = np.load(full_path)
         if S.shape[1] < 9453:
             S = add_padding(S, S.shape[0], 9453)
+        elif S.shape[1] > 9453:
+            S = S[:, :9453]
     else:
         S = np.load(full_path)[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=44100, n_mels=32)
@@ -61,6 +63,8 @@ def make_melspectrogram(audio_path, padding=False) -> Dict:
         S = np.abs(librosa.stft(y))
         if S.shape[1] < 9453:
             S = add_padding(S, S.shape[0], 9453)
+        elif S.shape[1] > 9453:
+            S = S[:, :9453]
     else:
         S = np.abs(librosa.stft(y))[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=sr, n_mels=32)
