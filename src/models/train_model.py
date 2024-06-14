@@ -79,12 +79,16 @@ TRAIN_CLASSES = ['joy', 'power', 'surprise', 'sadness', 'bitterness', 'tendernes
 
 TEST_CLASSES = ['fear', 'peace', 'tenderness', 'anger', 'tension']
 
+TRAIN_CLASSES_PMEMO = ['surprise',   'tension', 'sadness', 'transcendence']
+
+TEST_CLASSES_PMEMO = ['power', 'tenderness']
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
           ckpt_filename, padding):
-    num_workers = 10  # number of workers to use for data loading
+    num_workers = 2  # number of workers to use for data loading
 
     if dataset == "MTG":
         train_data = MTGJamendo(download,
@@ -101,8 +105,8 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
         train_data = JointDataset(download, TRAIN_CLASSES, padding)
         val_data = JointDataset(False, TEST_CLASSES, padding)
     elif dataset == "PMEmo":
-        train_data = PMEmo(download, TRAIN_CLASSES, padding)
-        val_data = PMEmo(False, TEST_CLASSES, padding)
+        train_data = PMEmo(download, TRAIN_CLASSES_PMEMO, padding)
+        val_data = PMEmo(False, TEST_CLASSES_PMEMO, padding)
     elif dataset == "TROMPA":
         train_data = TrompaMer(download, TRAIN_CLASSES, padding)
         val_data = TrompaMer(False, TEST_CLASSES, padding)
@@ -172,7 +176,7 @@ if __name__ == '__main__':
     #       'FSL_MTG_Jamendo', 'mtg-jamendo')
 
     # pmemo training
-    train(False, way, support, query, 2000, no_val_episodes, "PMEmo", [1e-5, 1e-4, 1e-3],
+    train(False, 2, support, query, 1000, no_val_episodes, "PMEmo", [1e-5, 1e-4, 1e-3],
           'FSL_PMEmo', 'pmemo-padding', True)
 
     # TROMPA-MER training
