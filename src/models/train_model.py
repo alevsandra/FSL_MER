@@ -84,7 +84,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
           ckpt_filename, padding):
-    num_workers = 8  # number of workers to use for data loading
+    num_workers = 10  # number of workers to use for data loading
 
     if dataset == "MTG":
         train_data = MTGJamendo(download,
@@ -103,6 +103,12 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
     elif dataset == "PMEmo":
         train_data = PMEmo(download, TRAIN_CLASSES, padding)
         val_data = PMEmo(False, TEST_CLASSES, padding)
+    elif dataset == "TROMPA":
+        train_data = TrompaMer(download, TRAIN_CLASSES, padding)
+        val_data = TrompaMer(False, TEST_CLASSES, padding)
+    elif dataset == "DEAM":
+        train_data = DEAM(download, TRAIN_CLASSES, padding)
+        val_data = DEAM(False, TEST_CLASSES, padding)
 
     train_episodes = EpisodeDataset(
         dataset=train_data,
@@ -161,14 +167,22 @@ if __name__ == '__main__':
 
     torch.set_float32_matmul_precision('medium')
 
-    # mtg training
-    # train(False, way, support, query, int(50000), val_episodes, "MTG", [3e-4, 2e-4],
+    # # mtg training
+    # train(False, way, support, query, int(50000), no_val_episodes, "MTG", [3e-4, 2e-4],
     #       'FSL_MTG_Jamendo', 'mtg-jamendo')
 
     # pmemo training
-    # train(False, way, support, query, train_episodes, val_episodes, "PMEmo", [1e-4, 1e-3],
-    #       'FSL_PMEmo', 'pmemo')
+    train(False, way, support, query, 2000, no_val_episodes, "PMEmo", [1e-5, 1e-4, 1e-3],
+          'FSL_PMEmo', 'pmemo-padding', True)
 
-    # joint train
-    train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-5],
-          'FSL_JointDataset', 'joint-dataset', True)
+    # TROMPA-MER training
+    train(False, way, support, query, 2000, no_val_episodes, "TROMPA", [1e-5, 1e-4, 1e-3],
+          'FSL_TROMPA-MER', 'trompa-mer-padding', True)
+
+    # DEAM training
+    train(False, way, support, query, 3000, no_val_episodes, "DEAM", [1e-5, 1e-4, 1e-3],
+          'FSL_DEAM', 'deam-padding', True)
+
+    # # joint train
+    # train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-5],
+    #       'FSL_JointDataset', 'joint-dataset', True)
