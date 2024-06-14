@@ -205,9 +205,10 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path):
     print(f"Total accuracy, averaged across all episodes: {total_acc:.2f}")
 
 
-if __name__ == '__main__':
-    # ckpt_path = os.path.join(ROOT_DIR, 'models/joint-dataset-val_loss-lr-Adam=1E-05-step=8850.ckpt')
-    ckpt_path = os.path.join(ROOT_DIR, 'models/joint-dataset-lr=1e-5-step=7850.ckpt')
+@click.command()
+@click.option('--ckpt_file', default='models/joint-dataset-lr=1e-5-step=7850.ckpt', help='path to checkpoint')
+def main(ckpt_file):
+    ckpt_path = os.path.join(ROOT_DIR, ckpt_file)
     n_way = 5  # number of classes per episode
     n_support = 5  # number of support examples per class
     n_query = 20  # number of samples per class to use as query
@@ -216,3 +217,7 @@ if __name__ == '__main__':
     predict(n_way, n_support, n_query, n_val_episodes, "Joint", "", ckpt_path)
 
     test(n_way, n_support, 15, 50, "Joint", ckpt_path)
+
+
+if __name__ == '__main__':
+    main()
