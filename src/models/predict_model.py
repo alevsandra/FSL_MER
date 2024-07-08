@@ -131,7 +131,7 @@ def predict(n_way, n_support, n_query, n_val_episodes, dataset, wandb_project, c
     trainer.validate(model=learner, dataloaders=val_loader)
 
 
-def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path):
+def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output):
     if dataset == "MTG":
         test_episodes = EpisodeDataset(
             dataset=MTGJamendo(False,
@@ -203,20 +203,27 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path):
             })
     total_acc = metric.compute()
     print(f"Total accuracy, averaged across all episodes: {total_acc:.2f}")
+    f = open(output, "a")
+    f.write(checkpoint_path + "\n")
+    f.write(f"Total accuracy, averaged across all episodes: {total_acc:.2f}\n")
+    f.close()
 
 
 @click.command()
-@click.option('--ckpt_file', default='models/joint-dataset-lr=1e-5-step=7850.ckpt', help='path to checkpoint')
-def main(ckpt_file):
-    ckpt_path = os.path.join(ROOT_DIR, ckpt_file)
-    n_way = 5  # number of classes per episode
-    n_support = 5  # number of support examples per class
-    n_query = 20  # number of samples per class to use as query
-    n_val_episodes = 100  # number of episodes to generate for validation
+@click.option('--ckpt_files', type=list, default=["models/joint-dataset-lr=1e-5-step=7850.ckpt"],
+              help='list of paths to checkpoint')
+@click.option('--output', default='results.txt', help='path to output file')
+def main(ckpt_files, output):
+    for ckpt_file in list(ckpt_files):
+        ckpt_path = os.path.join(ROOT_DIR, ckpt_file)
+        n_way = 5  # number of classes per episode
+        n_support = 5  # number of support examples per class
+        n_query = 20  # number of samples per class to use as query
+        n_val_episodes = 100  # number of episodes to generate for validation
 
-    predict(n_way, n_support, n_query, n_val_episodes, "Joint", "", ckpt_path)
+        predict(n_way, n_support, n_query, n_val_episodes, "Joint", "", ckpt_path)
 
-    test(n_way, n_support, 15, 50, "Joint", ckpt_path)
+        test(n_way, n_support, 15, 50, "Joint", ckpt_path, output)
 
 
 if __name__ == '__main__':
