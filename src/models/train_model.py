@@ -88,7 +88,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
           ckpt_filename, padding):
-    num_workers = 2  # number of workers to use for data loading
+    num_workers = 10  # number of workers to use for data loading
 
     if dataset == "MTG":
         train_data = MTGJamendo(download,

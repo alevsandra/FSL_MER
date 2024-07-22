@@ -29,7 +29,7 @@ def add_padding(array, xx, yy):
     return np.pad(array, pad_width=((a, aa), (b, bb)), mode='constant')
 
 
-def load_melspectrogram(path, padding=False) -> Dict:
+def load_melspectrogram(path, padding=False, augmentation=False) -> Dict:
     full_path = os.path.join(ROOT_DIR, path)
     if padding:
         S = np.load(full_path)
@@ -40,6 +40,8 @@ def load_melspectrogram(path, padding=False) -> Dict:
     else:
         S = np.load(full_path)[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=44100, n_mels=32)
+    if augmentation:
+        return {'audio': S}
     y = torch.from_numpy(S)
     return {'audio': y}
 
@@ -57,7 +59,7 @@ def load_audio(audio_path, duration) -> Dict:
     return {'audio': waveform_mono}
 
 
-def make_melspectrogram(audio_path, padding=False) -> Dict:
+def make_melspectrogram(audio_path, padding=False, augmentation=False) -> Dict:
     y, sr = librosa.load(audio_path)
     if padding:
         S = np.abs(librosa.stft(y))
@@ -68,6 +70,8 @@ def make_melspectrogram(audio_path, padding=False) -> Dict:
     else:
         S = np.abs(librosa.stft(y))[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=sr, n_mels=32)
+    if augmentation:
+        return {'audio': S}
     y = torch.from_numpy(S)
     return {'audio': y}
 
@@ -181,10 +185,12 @@ if __name__ == '__main__':
 
     # DEAM dataset label assign
     df = pd.read_csv(
-        "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second annotations)/arousal.csv",
+        "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second "
+        "annotations)/arousal.csv",
         index_col=0)
     df2 = pd.read_csv(
-        "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second annotations)/valence.csv",
+        "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second "
+        "annotations)/valence.csv",
         index_col=0)
     df['arousal(mean)'] = df.mean(axis=1)
     df2['valence(mean)'] = df2.mean(axis=1)
