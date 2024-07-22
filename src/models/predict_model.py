@@ -210,8 +210,8 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
 
 
 @click.command()
-@click.option('--ckpt_files', type=list, default=["models/joint-dataset-lr=1e-5-step=7850.ckpt"],
-              help='list of paths to checkpoint')
+@click.option('--ckpt_files', default=["models/joint-dataset-lr=1e-5-step=7850.ckpt"],
+              help='list of paths to checkpoint', multiple=True)
 @click.option('--output', default='results.txt', help='path to output file')
 def main(ckpt_files, output):
     for ckpt_file in list(ckpt_files):
