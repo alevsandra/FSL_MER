@@ -78,6 +78,10 @@ TRAIN_CLASSES = ['joy', 'power', 'surprise', 'sadness', 'bitterness', 'tendernes
 
 TEST_CLASSES = ['fear', 'peace', 'tenderness', 'anger', 'tension']
 
+TRAIN_CLASSES_PMEMO = ['surprise',   'tension', 'sadness', 'transcendence']
+
+TEST_CLASSES_PMEMO = ['power', 'tenderness']
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -94,7 +98,7 @@ def get_model_from_ckpt(checkpoint_path, dataset):
     return learner
 
 
-def predict(n_way, n_support, n_query, n_val_episodes, dataset, wandb_project, checkpoint_path):
+def predict(n_way, n_support, n_query, n_val_episodes, dataset, checkpoint_path):
     num_workers = 10  # number of workers to use for data loading
 
     if dataset == "MTG":
@@ -106,7 +110,7 @@ def predict(n_way, n_support, n_query, n_val_episodes, dataset, wandb_project, c
     elif dataset == "Joint":
         val_data = JointDataset(False, TEST_CLASSES)
     elif dataset == "PMEmo":
-        val_data = PMEmo(False, TEST_CLASSES)
+        val_data = PMEmo(False, TEST_CLASSES_PMEMO)
 
     val_episodes = EpisodeDataset(
         dataset=val_data,
@@ -154,7 +158,7 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
         )
     elif dataset == "PMEmo":
         test_episodes = EpisodeDataset(
-            dataset=PMEmo(False, TEST_CLASSES),
+            dataset=PMEmo(False, TEST_CLASSES_PMEMO),
             n_way=n_way,
             n_support=n_support,
             n_query=n_query,
@@ -214,6 +218,7 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
               help='list of paths to checkpoint', multiple=True)
 @click.option('--output', default='results.txt', help='path to output file')
 def main(ckpt_files, output):
+    torch.set_float32_matmul_precision('medium')
     for ckpt_file in list(ckpt_files):
         ckpt_path = os.path.join(ROOT_DIR, ckpt_file)
         n_way = 5  # number of classes per episode
@@ -221,9 +226,16 @@ def main(ckpt_files, output):
         n_query = 20  # number of samples per class to use as query
         n_val_episodes = 100  # number of episodes to generate for validation
 
-        predict(n_way, n_support, n_query, n_val_episodes, "Joint", "", ckpt_path)
+        dataset = "Joint"
+        if "pmemo" in ckpt_path.casefold():
+            dataset = "PMEmo"
+            n_way = 2
+        elif "mtg" in ckpt_path.casefold():
+            dataset = "MTG"
 
-        test(n_way, n_support, 15, 50, "Joint", ckpt_path, output)
+        predict(n_way, n_support, n_query, n_val_episodes, dataset, ckpt_path)
+
+        test(n_way, n_support, 15, 50, dataset, ckpt_path, output)
 
 
 if __name__ == '__main__':
