@@ -1,10 +1,15 @@
+import click
 import librosa
 import random
 import matplotlib.pyplot as plt
 from audiomentations import SpecCompose, SpecFrequencyMask
 from audiomentations.core.transforms_interface import BaseSpectrogramTransform
-from make_dataset import TrompaMer
+from make_dataset import TrompaMer, PMEmo, DEAM
 import numpy as np
+import os
+import csv
+
+ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
 
 class SpecTimeMask(BaseSpectrogramTransform):
@@ -67,17 +72,60 @@ def plot_spectrogram(spectrogram):
     plt.show()
 
 
-if __name__ == '__main__':
-    trompa = TrompaMer(False,
-                       ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
-                        'tenderness', 'transcendence'], augmentation=True)
-    input_spec = trompa[0]['audio']
+def get_indices(dataset, classes):
+    return [index for c in classes for index in dataset.class_to_indices[c]]
 
+
+def write_to_csv(file, data):
+    csv_file = open(file, 'a', newline='')
+    writer = csv.writer(csv_file)
+    writer.writerow(data)
+    csv_file.close()
+
+
+@click.command()
+@click.option('--out_path', default='data/processed/augmentation', help='out path for augmented data')
+@click.option('--out_path_annotations', default='data/processed', help='out path for annotations')
+def main(out_path, out_path_annotations):
+    # Q2 - 'tension', 'fear', 'anger'
+    # Q4 - 'peace', 'transcendence', 'tenderness'
+    classes_for_augmentation = ['tension', 'fear', 'anger', 'peace', 'transcendence', 'tenderness']
+    classes_for_augmentation_pmemo = ['tension', 'transcendence', 'tenderness']
+    trompa = TrompaMer(False, classes_for_augmentation, augmentation=True)
+    pmemo = PMEmo(False, classes_for_augmentation_pmemo, augmentation=True)
+    deam = DEAM(False, classes_for_augmentation, augmentation=True)
+
+    # create one list of spectrograms
+    items = [trompa[i] for i in get_indices(trompa, classes_for_augmentation)]
+    items.extend([pmemo[i] for i in get_indices(pmemo, classes_for_augmentation_pmemo)])
+    items.extend([deam[i] for i in get_indices(deam, classes_for_augmentation)])
+
+    # create output path if not present
+    full_path = os.path.join(ROOT_DIR, out_path)
+    if not os.path.isdir(full_path):
+        os.makedirs(full_path)
+
+    # create annotations file
+    annotation_file = os.path.join(ROOT_DIR, out_path_annotations, "augmentation_annotations.csv")
+    write_to_csv(annotation_file, ['id', 'label'])
+
+    # define transformations
     augment = SpecCompose([
-        SpecFrequencyMask(p=0),
-        SpecTimeMask(p=1)
+        SpecFrequencyMask(p=0.5),
+        SpecTimeMask(p=0.5)
     ])
 
-    augmented = augment(input_spec)
+    i = 4000
+    for element in items:
+        augmented = augment(element['audio'][:, :691])
 
-    plot_spectrogram(augmented)
+        filename = os.path.join(full_path, str(i) + ".npy")
+        np.save(filename, augmented)
+
+        write_to_csv(annotation_file, [i, element['label']])
+
+        i += 1
+
+
+if __name__ == '__main__':
+    main()

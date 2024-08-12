@@ -79,7 +79,7 @@ TRAIN_CLASSES = ['joy', 'power', 'surprise', 'sadness', 'bitterness', 'tendernes
 
 TEST_CLASSES = ['fear', 'peace', 'tenderness', 'anger', 'tension']
 
-TRAIN_CLASSES_PMEMO = ['surprise',   'tension', 'sadness', 'transcendence']
+TRAIN_CLASSES_PMEMO = ['surprise', 'tension', 'sadness', 'transcendence']
 
 TEST_CLASSES_PMEMO = ['power', 'tenderness']
 

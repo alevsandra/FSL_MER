@@ -313,8 +313,41 @@ class DEAM(ClassConditionalDataset):
         return class_indices
 
 
+class AugmentedData(ClassConditionalDataset):
+    def __init__(self, classes, padding=False, augmentation=False):
+        self.classes = classes
+        # FIXME: in case padding=True augmentation script needs to be modified not to cut spectrograms
+        self.padding = padding
+        self.augmentation = augmentation
+        self.annotations_csv = os.path.join(ROOT_DIR, 'data/processed/augmentation_annotations.csv')
+        self.annotations = pd.read_csv(self.annotations_csv, index_col=0)
+
+    def __len__(self):
+        filtered_annotations = self.annotations[self.annotations['label'].isin(self.class_list)]
+        return filtered_annotations.shape[0]
+
+    def __getitem__(self, index):
+        annotations = self.annotations.loc[[index]]
+        item = load_melspectrogram('data/processed/augmentation/' + str(index) + '.npy', self.padding,
+                                   self.augmentation)
+        item['label'] = annotations['label'].values[0]
+        return item
+
+    @property
+    def class_list(self) -> List[str]:
+        return self.classes
+
+    @property
+    def class_to_indices(self) -> Dict[str, List[int]]:
+        class_indices = {}
+        for label in self.class_list:
+            items = self.annotations[self.annotations['label'] == label]
+            class_indices[label] = items.index.values.tolist()
+        return class_indices
+
+
 class JointDataset(ClassConditionalDataset):
-    def __init__(self, download, classes, padding=False):
+    def __init__(self, download, classes, padding=False, augmentation=False):
         self.pme_mo = PMEmo(download, classes, padding)
         self.trompa = TrompaMer(download, classes, padding)
         self.deam = DEAM(download, classes, padding)
@@ -326,7 +359,13 @@ class JointDataset(ClassConditionalDataset):
              'dataset': 'TROMPA_MER'})
         deam_dict = pd.DataFrame(
             {'id': self.deam.annotations.index, 'label': self.deam.annotations['label'], 'dataset': 'DEAM'})
-        self.annotations = pd.concat([pme_mo_dict, trompa_dict, deam_dict])
+        if augmentation:
+            self.augmented = AugmentedData(['tension', 'fear', 'anger', 'peace', 'transcendence', 'tenderness'],
+                                           padding)
+            augmented_dict = pd.DataFrame(
+                {'id': self.augmented.annotations.index, 'label': self.augmented.annotations['label'],
+                 'dataset': 'Augmented'})
+        self.annotations = pd.concat([pme_mo_dict, trompa_dict, deam_dict, augmented_dict])
         self.classes = classes
 
     def __len__(self):
@@ -339,8 +378,10 @@ class JointDataset(ClassConditionalDataset):
             return self.pme_mo[index - 100000]
         elif annotations['dataset'].values[0] == 'TROMPA_MER':
             return self.trompa[index - 10000]
-        else:
+        elif annotations['dataset'].values[0] == 'DEAM':
             return self.deam[index]
+        else:
+            return self.augmented[index]
 
     @property
     def class_list(self) -> List[str]:
