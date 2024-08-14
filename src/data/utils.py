@@ -33,10 +33,10 @@ def load_melspectrogram(path, padding=False, augmentation=False) -> Dict:
     full_path = os.path.join(ROOT_DIR, path)
     if padding:
         S = np.load(full_path)
-        if S.shape[1] < 2764:
-            S = add_padding(S, S.shape[0], 2764)
-        elif S.shape[1] > 2764:
-            S = S[:, :2764]
+        if S.shape[1] < 1000:
+            S = add_padding(S, S.shape[0], 1000)
+        elif S.shape[1] > 1000:
+            S = S[:, :1000]
     else:
         S = np.load(full_path)[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=44100, n_mels=32)
@@ -63,10 +63,10 @@ def make_melspectrogram(audio_path, padding=False, augmentation=False) -> Dict:
     y, sr = librosa.load(audio_path)
     if padding:
         S = np.abs(librosa.stft(y))
-        if S.shape[1] < 2764:
-            S = add_padding(S, S.shape[0], 2764)
-        elif S.shape[1] > 2764:
-            S = S[:, :2764]
+        if S.shape[1] < 1000:
+            S = add_padding(S, S.shape[0], 1000)
+        elif S.shape[1] > 1000:
+            S = S[:, :1000]
     else:
         S = np.abs(librosa.stft(y))[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=sr, n_mels=32)
@@ -122,11 +122,11 @@ def assign_quarter_label(arousal, valence, pmemo):
         middle = 0
     if arousal > middle and valence > middle:
         return "Q1"
-    elif arousal < middle and valence > middle:
+    elif arousal < middle < valence:
         return "Q2"
     elif arousal < middle and valence < middle:
         return "Q3"
-    elif arousal > middle and valence < middle:
+    elif arousal > middle > valence:
         return "Q4"
 
 
@@ -141,7 +141,7 @@ def assign_label(arousal, valence, pmemo):  # arousal-x, valence-y
         elif valence + middle < 1 / math.sqrt(3) * arousal:
             return "joy"
         return "surprise"
-    elif arousal < middle and valence >= middle:
+    elif arousal < middle <= valence:
         if - valence + middle < math.sqrt(3) * arousal:
             return "tension"
         elif - valence + middle > 1 / math.sqrt(3) * arousal:
@@ -152,7 +152,7 @@ def assign_label(arousal, valence, pmemo):  # arousal-x, valence-y
             return "bitterness"
         else:
             return "sadness"
-    elif arousal >= middle and valence < middle:
+    elif arousal >= middle > valence:
         if - valence + middle > math.sqrt(3) * arousal:
             return "peace"
         elif - valence + middle < 1 / math.sqrt(3) * arousal:

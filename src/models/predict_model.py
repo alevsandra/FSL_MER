@@ -101,16 +101,23 @@ def get_model_from_ckpt(checkpoint_path, dataset):
 def predict(n_way, n_support, n_query, n_val_episodes, dataset, checkpoint_path):
     num_workers = 10  # number of workers to use for data loading
 
-    if dataset == "MTG":
-        val_data = MTGJamendo(False,
-                              'D:/magisterka-dane',
-                              '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
-                              '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
-                              TEST_CLASSES_MTG)
-    elif dataset == "Joint":
-        val_data = JointDataset(False, TEST_CLASSES)
-    elif dataset == "PMEmo":
-        val_data = PMEmo(False, TEST_CLASSES_PMEMO)
+    match dataset:
+        case "MTG":
+            val_data = MTGJamendo(False,
+                                  'D:/magisterka-dane',
+                                  '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
+                                  '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
+                                  TEST_CLASSES_MTG)
+        case "Joint":
+            val_data = JointDataset(False, TEST_CLASSES)
+        case "PMEmo":
+            val_data = PMEmo(False, TEST_CLASSES_PMEMO)
+        case "DEAM":
+            val_data = DEAM(False, TEST_CLASSES)
+        case "TROMPA":
+            val_data = TrompaMer(False, TEST_CLASSES)
+        case _:
+            raise Exception("Wrong dataset name")
 
     val_episodes = EpisodeDataset(
         dataset=val_data,
@@ -136,34 +143,53 @@ def predict(n_way, n_support, n_query, n_val_episodes, dataset, checkpoint_path)
 
 
 def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output):
-    if dataset == "MTG":
-        test_episodes = EpisodeDataset(
-            dataset=MTGJamendo(False,
-                               'D:/magisterka-dane',
-                               '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
-                               '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
-                               TEST_CLASSES_MTG),
-            n_way=n_way,
-            n_support=n_support,
-            n_query=n_query,
-            n_episodes=n_episodes
-        )
-    elif dataset == "Joint":
-        test_episodes = EpisodeDataset(
-            dataset=JointDataset(False, TEST_CLASSES),
-            n_way=n_way,
-            n_support=n_support,
-            n_query=n_query,
-            n_episodes=n_episodes
-        )
-    elif dataset == "PMEmo":
-        test_episodes = EpisodeDataset(
-            dataset=PMEmo(False, TEST_CLASSES_PMEMO),
-            n_way=n_way,
-            n_support=n_support,
-            n_query=n_query,
-            n_episodes=n_episodes
-        )
+    match dataset:
+        case "MTG":
+            test_episodes = EpisodeDataset(
+                dataset=MTGJamendo(False,
+                                   'D:/magisterka-dane',
+                                   '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
+                                   '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
+                                   TEST_CLASSES_MTG),
+                n_way=n_way,
+                n_support=n_support,
+                n_query=n_query,
+                n_episodes=n_episodes
+            )
+        case "Joint":
+            test_episodes = EpisodeDataset(
+                dataset=JointDataset(False, TEST_CLASSES),
+                n_way=n_way,
+                n_support=n_support,
+                n_query=n_query,
+                n_episodes=n_episodes
+            )
+        case "PMEmo":
+            test_episodes = EpisodeDataset(
+                dataset=PMEmo(False, TEST_CLASSES_PMEMO),
+                n_way=n_way,
+                n_support=n_support,
+                n_query=n_query,
+                n_episodes=n_episodes
+            )
+        case "DEAM":
+            test_episodes = EpisodeDataset(
+                dataset=DEAM(False, TEST_CLASSES),
+                n_way=n_way,
+                n_support=n_support,
+                n_query=n_query,
+                n_episodes=n_episodes
+            )
+        case "TROMPA":
+            test_episodes = EpisodeDataset(
+                dataset=TrompaMer(False, TEST_CLASSES),
+                n_way=n_way,
+                n_support=n_support,
+                n_query=n_query,
+                n_episodes=n_episodes
+            )
+        case _:
+            raise Exception("Wrong dataset name")
 
     learner = get_model_from_ckpt(checkpoint_path, dataset)
 
@@ -232,6 +258,10 @@ def main(ckpt_files, output):
             n_way = 2
         elif "mtg" in ckpt_path.casefold():
             dataset = "MTG"
+        elif "deam" in ckpt_path.casefold():
+            dataset = "DEAM"
+        elif "trompa" in ckpt_path.casefold():
+            dataset = "TROMPA"
 
         predict(n_way, n_support, n_query, n_val_episodes, dataset, ckpt_path)
 

@@ -359,13 +359,13 @@ class JointDataset(ClassConditionalDataset):
              'dataset': 'TROMPA_MER'})
         deam_dict = pd.DataFrame(
             {'id': self.deam.annotations.index, 'label': self.deam.annotations['label'], 'dataset': 'DEAM'})
+        self.annotations = pd.concat([pme_mo_dict, trompa_dict, deam_dict])
         if augmentation:
-            self.augmented = AugmentedData(['tension', 'fear', 'anger', 'peace', 'transcendence', 'tenderness'],
-                                           padding)
+            self.augmented = AugmentedData(classes, padding)
             augmented_dict = pd.DataFrame(
                 {'id': self.augmented.annotations.index, 'label': self.augmented.annotations['label'],
                  'dataset': 'Augmented'})
-        self.annotations = pd.concat([pme_mo_dict, trompa_dict, deam_dict, augmented_dict])
+            self.annotations = pd.concat([pme_mo_dict, trompa_dict, deam_dict, augmented_dict])
         self.classes = classes
 
     def __len__(self):
@@ -374,14 +374,15 @@ class JointDataset(ClassConditionalDataset):
 
     def __getitem__(self, index):
         annotations = self.annotations[self.annotations['id'] == index]
-        if annotations['dataset'].values[0] == 'PMEmo':
-            return self.pme_mo[index - 100000]
-        elif annotations['dataset'].values[0] == 'TROMPA_MER':
-            return self.trompa[index - 10000]
-        elif annotations['dataset'].values[0] == 'DEAM':
-            return self.deam[index]
-        else:
-            return self.augmented[index]
+        match annotations['dataset'].values[0]:
+            case 'PMEmo':
+                return self.pme_mo[index - 100000]
+            case 'TROMPA_MER':
+                return self.trompa[index - 10000]
+            case 'DEAM':
+                return self.deam[index]
+            case _:
+                return self.augmented[index]
 
     @property
     def class_list(self) -> List[str]:

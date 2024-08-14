@@ -87,32 +87,35 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
-          ckpt_filename, padding):
+          ckpt_filename, padding, augmentation):
     num_workers = 10  # number of workers to use for data loading
 
-    if dataset == "MTG":
-        train_data = MTGJamendo(download,
-                                'D:/magisterka-dane',
-                                '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
-                                '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
-                                TRAIN_CLASSES_MTG)
-        val_data = MTGJamendo(False,
-                              'D:/magisterka-dane',
-                              '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
-                              '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
-                              TEST_CLASSES_MTG)
-    elif dataset == "Joint":
-        train_data = JointDataset(download, TRAIN_CLASSES, padding)
-        val_data = JointDataset(False, TEST_CLASSES, padding)
-    elif dataset == "PMEmo":
-        train_data = PMEmo(download, TRAIN_CLASSES_PMEMO, padding)
-        val_data = PMEmo(False, TEST_CLASSES_PMEMO, padding)
-    elif dataset == "TROMPA":
-        train_data = TrompaMer(download, TRAIN_CLASSES, padding)
-        val_data = TrompaMer(False, TEST_CLASSES, padding)
-    elif dataset == "DEAM":
-        train_data = DEAM(download, TRAIN_CLASSES, padding)
-        val_data = DEAM(False, TEST_CLASSES, padding)
+    match dataset:
+        case "MTG":
+            train_data = MTGJamendo(download,
+                                    'D:/magisterka-dane',
+                                    '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
+                                    '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
+                                    TRAIN_CLASSES_MTG)
+            val_data = MTGJamendo(False,
+                                  'D:/magisterka-dane',
+                                  '../data/mtg_jamendo_dataset/data/autotagging_moodtheme.tsv',
+                                  '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
+                                  TEST_CLASSES_MTG)
+        case "Joint":
+            train_data = JointDataset(download, TRAIN_CLASSES, padding, augmentation)
+            val_data = JointDataset(False, TEST_CLASSES, padding, augmentation)
+        case "PMEmo":
+            train_data = PMEmo(download, TRAIN_CLASSES_PMEMO, padding)
+            val_data = PMEmo(False, TEST_CLASSES_PMEMO, padding)
+        case "TROMPA":
+            train_data = TrompaMer(download, TRAIN_CLASSES, padding)
+            val_data = TrompaMer(False, TEST_CLASSES, padding)
+        case "DEAM":
+            train_data = DEAM(download, TRAIN_CLASSES, padding)
+            val_data = DEAM(False, TEST_CLASSES, padding)
+        case _:
+            raise Exception("Wrong dataset name")
 
     train_episodes = EpisodeDataset(
         dataset=train_data,
@@ -176,17 +179,17 @@ if __name__ == '__main__':
     #       'FSL_MTG_Jamendo', 'mtg-jamendo')
 
     # pmemo training
-    train(False, 2, support, query, 1000, no_val_episodes, "PMEmo", [1e-5, 1e-4, 1e-3],
-          'FSL_PMEmo', 'pmemo-padding', True)
+    # train(False, 2, support, query, 1000, no_val_episodes, "PMEmo", [1e-5, 1e-4, 1e-3],
+    #       'FSL_PMEmo', 'pmemo-padding', True)
 
     # TROMPA-MER training
-    train(False, way, support, query, 2000, no_val_episodes, "TROMPA", [1e-5, 1e-4, 1e-3],
-          'FSL_TROMPA-MER', 'trompa-mer-padding', True)
+    # train(False, way, support, query, 2000, no_val_episodes, "TROMPA", [1e-5, 1e-4, 1e-3],
+    #       'FSL_TROMPA-MER', 'trompa-mer-padding', True)
 
     # DEAM training
-    train(False, way, support, query, 3000, no_val_episodes, "DEAM", [1e-5, 1e-4, 1e-3],
-          'FSL_DEAM', 'deam-padding', True)
+    # train(False, way, support, query, 3000, no_val_episodes, "DEAM", [1e-5, 1e-4, 1e-3],
+    #       'FSL_DEAM', 'deam-padding', True)
 
     # # joint train
-    # train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-5],
-    #       'FSL_JointDataset', 'joint-dataset', True)
+    train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-5],
+          'FSL_JointDataset', 'joint-dataset', False, True)
