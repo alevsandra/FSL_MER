@@ -83,14 +83,30 @@ def write_to_csv(file, data):
     csv_file.close()
 
 
+def delete_class(data_path, annotation_file, class_names):
+    new_annotation_file = annotation_file.split(".")[0] + "-temp.csv"
+    with open(annotation_file, 'r') as inp, open(new_annotation_file, 'w', newline='') as out:
+        writer = csv.writer(out)
+        for file in csv.reader(inp):
+            if file[1] in class_names:
+                os.remove(os.path.join(data_path, file[0] + ".npy"))
+            else:
+                writer.writerow(file)
+    os.remove(annotation_file)
+    os.rename(new_annotation_file, annotation_file)
+
+
 @click.command()
 @click.option('--out_path', default='data/processed/augmentation', help='out path for augmented data')
 @click.option('--out_path_annotations', default='data/processed', help='out path for annotations')
 def main(out_path, out_path_annotations):
     # Q2 - 'tension', 'fear', 'anger'
     # Q4 - 'peace', 'transcendence', 'tenderness'
-    classes_for_augmentation = ['tension', 'fear', 'anger', 'peace', 'transcendence', 'tenderness']
-    classes_for_augmentation_pmemo = ['tension', 'transcendence', 'tenderness']
+    # classes_for_augmentation = ['tension', 'fear', 'anger', 'peace', 'transcendence', 'tenderness']
+    # classes_for_augmentation_pmemo = ['tension', 'transcendence', 'tenderness']
+    # exclude validation dataset
+    classes_for_augmentation = ['tension', 'anger', 'transcendence']
+    classes_for_augmentation_pmemo = ['tension', 'transcendence']
     trompa = TrompaMer(False, classes_for_augmentation, augmentation=True)
     pmemo = PMEmo(False, classes_for_augmentation_pmemo, augmentation=True)
     deam = DEAM(False, classes_for_augmentation, augmentation=True)
@@ -128,4 +144,7 @@ def main(out_path, out_path_annotations):
 
 
 if __name__ == '__main__':
+    path = os.path.join(ROOT_DIR, "data/processed/augmentation")
+    file_path = os.path.join(ROOT_DIR, "data/processed/augmentation_annotations.csv")
+    delete_class(path, file_path, ['tension'])
     main()
