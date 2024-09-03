@@ -11,7 +11,7 @@ ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 pme_mo_data_url = 'https://drive.google.com/uc?id=1UzC3NCDj30j9Ba7i5lkMzWO5gFqSr0OJ'
 pme_mo_readme_url = 'https://drive.google.com/uc?id=1KQ0zjRiBQynnHyVPU7DGpUWvtPmCBOcq'
 
-TROMPA_spectrograms = 'https://drive.google.com/uc?id=1xp2YnDCAfsAn_H7t38B-RInrhwuD6NjX'
+TROMPA_spectrograms = 'https://drive.google.com/uc?id=1Vy2QroaGrkjH2ZjovHxmPFAcfUmxoqZL'
 TROMPA_annotations = 'https://raw.githubusercontent.com/juansgomez87/vis-mtg-mer/main/data/summary.csv'
 
 DEAM_audio = 'http://cvml.unige.ch/databases/DEAM/DEAM_audio.zip'
@@ -155,7 +155,8 @@ class EpisodeDataset(Dataset):
 class MTGJamendo(ClassConditionalDataset):
     def __init__(self, download, outputdir, input_file, class_file, classes):
         if download:
-            main_download(outputdir)
+            output = os.path.join(ROOT_DIR, outputdir)
+            main_download(output)
         self.tracks, self.tags, self.extra = commons.read_file(input_file)
         self.class_file = class_file
         self.output_dir = outputdir
@@ -172,7 +173,8 @@ class MTGJamendo(ClassConditionalDataset):
 
     def __getitem__(self, index):
         item = self.tracks[index]
-        x = load_mtg_melspectrogram(self.output_dir + "/" + item['path'].replace(".mp3", ".npy"))
+        path = os.path.join(ROOT_DIR, self.output_dir, item['path'].replace(".mp3", ".npy"))
+        x = load_mtg_melspectrogram(path)
         x["label"] = item['tags']
         return x
 

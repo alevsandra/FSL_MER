@@ -211,7 +211,7 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
 
         # compute the accuracy
         acc = metric(logits, query["target"])
-        pbar.set_description(f"Episode {episode_idx} // Accuracy: {acc.item():.2f}")
+        pbar.set_description(f"Episode {episode_idx} // Accuracy: {acc.item():.3f}")
 
         # add all the support and query embeddings to our records
         for subset_idx, subset in enumerate((support, query)):
@@ -232,10 +232,10 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
                 "episode_idx": episode_idx
             })
     total_acc = metric.compute()
-    print(f"Total accuracy, averaged across all episodes: {total_acc:.2f}")
+    print(f"Total accuracy, averaged across all episodes: {total_acc:.3f}")
     f = open(output, "a")
     f.write(checkpoint_path + "\n")
-    f.write(f"Total accuracy, averaged across all episodes: {total_acc:.2f}\n")
+    f.write(f"Total accuracy, averaged across all episodes: {total_acc:.3f}\n")
     f.close()
 
 
@@ -265,7 +265,7 @@ def main(ckpt_files, output):
 
         predict(n_way, n_support, n_query, n_val_episodes, dataset, ckpt_path)
 
-        test(n_way, n_support, 15, 50, dataset, ckpt_path, output)
+        test(n_way, n_support, n_query, n_val_episodes, dataset, ckpt_path, output)
 
 
 if __name__ == '__main__':

@@ -5,10 +5,10 @@ import gdown
 import os
 import zipfile
 import torchaudio
-import pandas as pd
 import math
 import urllib.request
 import librosa
+from pydub import AudioSegment
 
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
@@ -172,38 +172,53 @@ def batch_device(dictionary, DEVICE):
             dictionary[key] = value.to(DEVICE)
 
 
+def trim_mp3(audio_path):
+    sound = AudioSegment.from_mp3(audio_path)
+    duration = 5 * 1000  # 5 seconds
+    ten_seconds = 10 * 1000
+    trimmed_sound = sound[ten_seconds:ten_seconds + duration]
+    trimmed_sound.export(audio_path, format="mp3")
+
+
+def trim_mp3_in_folder(folder_path):
+    full_path = os.path.join(ROOT_DIR, folder_path)
+    for file in os.listdir(full_path):
+        trim_mp3(os.path.join(full_path, file))
+
+
 if __name__ == '__main__':
-    data = load_melspectrogram('D:/magisterka-dane/' + '00/7400.npy')
-    print(data['audio'].shape)
-
-    # PMEmo label assign
-    df = pd.read_csv("../../data/raw/PMEmo2019/annotations/static_annotations.csv")
-    for index, row in df.iterrows():
-        df.at[index, 'quadrant'] = assign_quarter_label(row['Arousal(mean)'], row['Valence(mean)'], True)
-        df.at[index, 'label'] = assign_label(row['Arousal(mean)'], row['Valence(mean)'], True)
-    df.to_csv('../../data/processed/pmemo_labels.csv', sep='\t')
-
-    # DEAM dataset label assign
-    df = pd.read_csv(
-        "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second "
-        "annotations)/arousal.csv",
-        index_col=0)
-    df2 = pd.read_csv(
-        "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second "
-        "annotations)/valence.csv",
-        index_col=0)
-    df['arousal(mean)'] = df.mean(axis=1)
-    df2['valence(mean)'] = df2.mean(axis=1)
-    df['valence(mean)'] = df2['valence(mean)']
-    for index, row in df.iterrows():
-        df.at[index, 'quadrant'] = assign_quarter_label(row['arousal(mean)'], row['valence(mean)'], False)
-        df.at[index, 'label'] = assign_label(row['arousal(mean)'], row['valence(mean)'], False)
-    df[['valence(mean)', 'arousal(mean)', 'quadrant', 'label']].to_csv('../../data/processed/deam_mean_quarter.csv',
-                                                                       sep='\t')
-
-    # TROMPA-MER label assign
-    df = pd.read_csv("../../data/external/TROMPA_MER/summary_anno.csv", index_col=0, sep='\t')
-    for index, row in df.iterrows():
-        df.at[index, 'label'] = assign_label(row['norm_energy'], row['norm_valence'], False)
-    df[['norm_energy', 'norm_valence', 'quadrant', 'label']].to_csv('../../data/processed/trompa_mer_labels.csv',
-                                                                    sep='\t')
+    trim_mp3_in_folder('data/raw/MEMD_audio/')
+    # data = load_melspectrogram('D:/magisterka-dane/' + '00/7400.npy')
+    # print(data['audio'].shape)
+    #
+    # # PMEmo label assign
+    # df = pd.read_csv("../../data/raw/PMEmo2019/annotations/static_annotations.csv")
+    # for index, row in df.iterrows():
+    #     df.at[index, 'quadrant'] = assign_quarter_label(row['Arousal(mean)'], row['Valence(mean)'], True)
+    #     df.at[index, 'label'] = assign_label(row['Arousal(mean)'], row['Valence(mean)'], True)
+    # df.to_csv('../../data/processed/pmemo_labels.csv', sep='\t')
+    #
+    # # DEAM dataset label assign
+    # df = pd.read_csv(
+    #     "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second "
+    #     "annotations)/arousal.csv",
+    #     index_col=0)
+    # df2 = pd.read_csv(
+    #     "../../data/external/DEAM_Annotations/annotations/annotations averaged per song/dynamic (per second "
+    #     "annotations)/valence.csv",
+    #     index_col=0)
+    # df['arousal(mean)'] = df.mean(axis=1)
+    # df2['valence(mean)'] = df2.mean(axis=1)
+    # df['valence(mean)'] = df2['valence(mean)']
+    # for index, row in df.iterrows():
+    #     df.at[index, 'quadrant'] = assign_quarter_label(row['arousal(mean)'], row['valence(mean)'], False)
+    #     df.at[index, 'label'] = assign_label(row['arousal(mean)'], row['valence(mean)'], False)
+    # df[['valence(mean)', 'arousal(mean)', 'quadrant', 'label']].to_csv('../../data/processed/deam_mean_quarter.csv',
+    #                                                                    sep='\t')
+    #
+    # # TROMPA-MER label assign
+    # df = pd.read_csv("../../data/external/TROMPA_MER/summary_anno.csv", index_col=0, sep='\t')
+    # for index, row in df.iterrows():
+    #     df.at[index, 'label'] = assign_label(row['norm_energy'], row['norm_valence'], False)
+    # df[['norm_energy', 'norm_valence', 'quadrant', 'label']].to_csv('../../data/processed/trompa_mer_labels.csv',
+    #                                                                 sep='\t')
