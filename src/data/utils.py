@@ -174,7 +174,7 @@ def batch_device(dictionary, DEVICE):
 
 def trim_mp3(audio_path):
     sound = AudioSegment.from_mp3(audio_path)
-    duration = 5 * 1000  # 5 seconds
+    duration = 20 * 1000  # 20 seconds
     ten_seconds = 10 * 1000
     trimmed_sound = sound[ten_seconds:ten_seconds + duration]
     trimmed_sound.export(audio_path, format="mp3")

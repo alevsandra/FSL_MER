@@ -2,6 +2,7 @@ import pytorch_lightning as pl
 import torch.cuda
 import wandb
 from torch.utils.data import DataLoader
+import warnings
 
 from common_architecture import PrototypicalNet, FewShotLearner
 from src.data.make_dataset import *
@@ -145,6 +146,9 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
         learner = FewShotLearner(protonet, num_classes=n_way, learning_rate=lr).to(DEVICE)
 
         wandb_logger = WandbLogger(project=wandb_project, job_type='train', log_model=True)
+        wandb_logger.experiment.config.update({"k_way": n_way, "n_support": n_support, "n_query": n_query,
+                                               "TRAIN_CLASSES": train_data.classes, "TEST_CLASSES": val_data.classes})
+
         checkpoint_callback = ModelCheckpoint(dirpath='../../models/',
                                               monitor="loss/val",
                                               mode="min",
@@ -173,22 +177,23 @@ if __name__ == '__main__':
     no_val_episodes = 100  # number of episodes to generate for validation
 
     torch.set_float32_matmul_precision('medium')
+    warnings.filterwarnings("ignore", category=UserWarning)
 
     # # mtg training
     # train(False, way, support, query, int(50000), no_val_episodes, "MTG", [3e-4, 2e-4],
-    #       'FSL_MTG_Jamendo', 'mtg-jamendo')
+    #       'FSL_MTG_Jamendo', 'mtg-jamendo', False, False)
 
     # pmemo training
-    # train(False, 2, support, query, 1000, no_val_episodes, "PMEmo", [1e-5, 1e-4, 1e-3],
-    #       'FSL_PMEmo', 'pmemo-padding', True)
+    # train(False, 2, support, query, 1000, no_val_episodes, "PMEmo", [1e-5],
+    #       'FSL_PMEmo', 'pmemo-padding', True, False)
 
     # TROMPA-MER training
     # train(False, way, support, query, 2000, no_val_episodes, "TROMPA", [1e-5, 1e-4, 1e-3],
-    #       'FSL_TROMPA-MER', 'trompa-mer-padding', True)
+    #       'FSL_TROMPA-MER', 'trompa-mer-padding', True, False)
 
     # DEAM training
     # train(False, way, support, query, 3000, no_val_episodes, "DEAM", [1e-5, 1e-4, 1e-3],
-    #       'FSL_DEAM', 'deam-padding', True)
+    #       'FSL_DEAM', 'deam-padding', True, False)
 
     # # joint train
     train(False, way, support, query, no_train_episodes, no_val_episodes, "Joint", [1e-5],

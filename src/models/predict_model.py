@@ -2,6 +2,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 import tqdm
+import warnings
 
 from common_architecture import PrototypicalNet, FewShotLearner
 from src.data.make_dataset import *
@@ -245,6 +246,8 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
 @click.option('--output', default='results.txt', help='path to output file')
 def main(ckpt_files, output):
     torch.set_float32_matmul_precision('medium')
+    warnings.filterwarnings("ignore", category=UserWarning)
+
     for ckpt_file in list(ckpt_files):
         ckpt_path = os.path.join(ROOT_DIR, ckpt_file)
         n_way = 5  # number of classes per episode
