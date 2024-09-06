@@ -297,8 +297,9 @@ class DEAM(ClassConditionalDataset):
 
     def __getitem__(self, index):
         annotations = self.annotations.loc[[index]]
-        audio_path = os.path.join(ROOT_DIR, 'data/raw/DEAM2/spectrogram/' + str(annotations.index.values[0]) + '.npy')
-        item = load_melspectrogram(audio_path, self.padding, self.augmentation)
+        audio_path = os.path.join(ROOT_DIR,
+                                  'data/raw/MEMD_audio/DEAM_spectrograms/' + str(annotations.index.values[0]) + '.npy')
+        item = load_prepared_melspectrogram(audio_path, self.padding)
         item['label'] = annotations['label'].values[0]
         return item
 
