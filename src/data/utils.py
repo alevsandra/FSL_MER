@@ -40,6 +40,8 @@ def load_melspectrogram(path, padding=False, augmentation=False) -> Dict:
     else:
         S = np.load(full_path)[:, :691]
     S = librosa.feature.melspectrogram(S=S, sr=44100, n_mels=32)
+    if "DEAM" in path:
+        S = librosa.feature.melspectrogram(S=S, sr=22050, n_mels=32)
     if augmentation:
         return {'audio': S}
     y = torch.from_numpy(S)
