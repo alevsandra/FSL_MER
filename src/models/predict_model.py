@@ -1,6 +1,7 @@
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
+from torchmetrics.classification import MulticlassPrecision, MulticlassF1Score, MulticlassRecall
 import tqdm
 import warnings
 
@@ -194,7 +195,12 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
 
     learner = get_model_from_ckpt(checkpoint_path, dataset)
 
-    metric = Accuracy(num_classes=n_way, task="multiclass").to(DEVICE)
+    metrics = {
+        "accuracy": Accuracy(num_classes=n_way, task="multiclass").to(DEVICE),
+        "precision": MulticlassPrecision(num_classes=n_way, average="macro").to(DEVICE),
+        "recall": MulticlassRecall(num_classes=n_way, average="macro").to(DEVICE),
+        "f1_score": MulticlassF1Score(num_classes=n_way, average="macro").to(DEVICE)
+    }
 
     # collect all the embeddings in the test set
     # so we can plot them later
@@ -210,9 +216,12 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
         # get the embeddings
         logits = learner.protonet(support, query)
 
-        # compute the accuracy
-        acc = metric(logits, query["target"])
-        pbar.set_description(f"Episode {episode_idx} // Accuracy: {acc.item():.3f}")
+        # compute the metrics
+        results = {}
+        for name, metric in metrics.items():
+            results[name] = metric(logits, query["target"])
+
+        pbar.set_description(f"Episode {episode_idx} // Accuracy: {results['accuracy'].item():.3f}")
 
         # add all the support and query embeddings to our records
         for subset_idx, subset in enumerate((support, query)):
@@ -232,11 +241,14 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
                 "marker": "prototype",
                 "episode_idx": episode_idx
             })
-    total_acc = metric.compute()
-    print(f"Total accuracy, averaged across all episodes: {total_acc:.3f}")
+    final_results = {}
+    for name, metric in metrics.items():
+        final_results[name] = metric.compute()
+    print(f"Total accuracy, averaged across all episodes: {final_results['accuracy']:.3f}")
     f = open(output, "a")
     f.write(checkpoint_path + "\n")
-    f.write(f"Total accuracy, averaged across all episodes: {total_acc:.3f}\n")
+    for name, metric in final_results.items():
+        f.write(f"Total {name}, averaged across all episodes: {metric:.3f}\n")
     f.close()
 
 
