@@ -185,9 +185,9 @@ class FewShotNegativeLearner(pl.LightningModule):
         position = [[i for i in range(self.num_classes)] for _ in range(len(support["audio"]))]
         _position = [[] for _ in range(len(support["audio"]))]
 
-        pseudo_label, un_idx, logits = self.protonet.get_negative_labels(support["audio"], position, _position)
+        pseudo_label, un_idx, neg_logits = self.protonet.get_negative_labels(support["audio"], position, _position)
         if len(un_idx) > 0:
-            loss += NegCELoss(logits[un_idx], pseudo_label) + mini_entropy_loss(logits[un_idx])
+            loss += NegCELoss(neg_logits[un_idx], pseudo_label) + mini_entropy_loss(neg_logits[un_idx])
 
         output = {"loss": loss}
         for k, metric in self.metrics.items():
