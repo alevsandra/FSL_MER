@@ -104,7 +104,7 @@ class PrototypicalNet(nn.Module):
         return torch.tensor(pseudo_labels), confident_idx
 
     def get_preds(self, out):
-        return out.argmin(nn.Softmax(out), axis=0)
+        return np.argmin(nn.Softmax(out), axis=0)
 
 
 class FewShotLearner(pl.LightningModule):
@@ -188,11 +188,6 @@ class FewShotNegativeLearner(pl.LightningModule):
         pseudo_label, un_idx, logits = self.protonet.get_negative_labels(support["audio"], position, _position)
         if len(un_idx) > 0:
             loss += NegCELoss(logits[un_idx], pseudo_label) + mini_entropy_loss(logits[un_idx])
-
-        pos_labels, pos_idx = self.protonet.get_positive_labels(support["audio"], thres=self.delta)
-        if len(pos_idx) > 0:
-            logits = logits[pos_idx]  # Use already computed logits for positive samples
-            loss += self.loss(logits, pos_labels.to(self.device)) + mini_entropy_loss(logits[un_idx])
 
         output = {"loss": loss}
         for k, metric in self.metrics.items():
