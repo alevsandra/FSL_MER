@@ -81,7 +81,7 @@ class PrototypicalNet(nn.Module):
             out = softmax(unlabel_out[idx][pos])
             if len(pos) == 1 or out.min() > thres:
                 un_idx.append(idx)
-                r.append(_pos[-1] if _pos else np.argmin(out.cpu().numpy(), axis=0))
+                r.append(_pos[-1] if _pos else np.argmin(out.cpu().detach().numpy(), axis=0))
             else:
                 a = pos[self.get_preds(out)]
                 _position[idx].append(a)
@@ -187,6 +187,7 @@ class FewShotNegativeLearner(pl.LightningModule):
 
         pseudo_label, un_idx, neg_logits = self.protonet.get_negative_labels(support["audio"], position, _position)
         if len(un_idx) > 0:
+            pseudo_label = torch.tensor(pseudo_label).to(self.device)
             loss += NegCELoss(neg_logits[un_idx], pseudo_label) + mini_entropy_loss(neg_logits[un_idx])
 
         output = {"loss": loss}
