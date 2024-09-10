@@ -4,91 +4,19 @@ import wandb
 from torch.utils.data import DataLoader
 import warnings
 
-from common_architecture import PrototypicalNet, FewShotLearner
+from common_architecture import PrototypicalNet, FewShotLearner, FewShotNegativeLearner
 from src.data.make_dataset import *
 from backbone_model import Backbone, BackboneMTG
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
-
-TRAIN_CLASSES_MTG = [
-    'happy',
-    'film',
-    'energetic',
-    'relaxing',
-    'emotional',
-    'melodic',
-    'dark',
-    'epic',
-    'dream',
-    'love',
-    'inspiring',
-    'sad',
-    'meditative',
-    'advertising',
-    'motivational',
-    'deep',
-    'romantic',
-    'christmas',
-    'documentary',
-    'corporate',
-    'positive',
-    'summer',
-    'space',
-    'background',
-    'fun',
-    'ambiental',
-    'calm',
-    'children',
-    'adventure',
-    'melancholic',
-    'commercial',
-    'drama',
-    'movie',
-    'action',
-    'ballad',
-    'dramatic',
-    'sport',
-    'trailer',
-    'party',
-    'game',
-    'nature',
-    'cool',
-    'powerful',
-    'hopeful',
-    'retro',
-    'funny',
-    'groovy',
-    'holiday',
-    'travel',
-    'horror',
-    'heavy',
-    'mellow',
-    'sexy',
-    'fast'
-]
-
-TEST_CLASSES_MTG = [
-    'slow',
-    'soft',
-    'soundscape',
-    'upbeat',
-    'uplifting'
-]
-
-TRAIN_CLASSES = ['joy', 'power', 'surprise', 'sadness', 'bitterness', 'tenderness', 'transcendence']
-
-TEST_CLASSES = ['fear', 'peace', 'tenderness', 'anger', 'tension']
-
-TRAIN_CLASSES_PMEMO = ['surprise', 'tension', 'sadness', 'transcendence']
-
-TEST_CLASSES_PMEMO = ['power', 'tenderness']
+from constants import *
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
-          ckpt_filename, padding, augmentation):
+          ckpt_filename, padding, augmentation=False, MUSIC=False):
     num_workers = 10  # number of workers to use for data loading
 
     match dataset:
@@ -104,17 +32,29 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
                                   '../data/mtg_jamendo_dataset/data/tags/moodtheme.txt',
                                   TEST_CLASSES_MTG)
         case "Joint":
-            train_data = JointDataset(download, TRAIN_CLASSES, padding, augmentation)
-            val_data = JointDataset(False, TEST_CLASSES, padding, augmentation)
+            if augmentation:
+                train_data = JointDataset(download, TRAIN_CLASSES_AUGMENTED, padding, augmentation)
+                val_data = JointDataset(False, TEST_CLASSES_AUGMENTED, padding, augmentation)
+            else:
+                train_data = JointDataset(download, TRAIN_CLASSES, padding, augmentation)
+                val_data = JointDataset(False, TEST_CLASSES, padding, augmentation)
         case "PMEmo":
             train_data = PMEmo(download, TRAIN_CLASSES_PMEMO, padding)
             val_data = PMEmo(False, TEST_CLASSES_PMEMO, padding)
         case "TROMPA":
-            train_data = TrompaMer(download, TRAIN_CLASSES, padding)
-            val_data = TrompaMer(False, TEST_CLASSES, padding)
+            if n_way == 3:
+                train_data = TrompaMer(download, TRAIN_CLASSES_TROMPA_3WAY, padding)
+                val_data = TrompaMer(False, TRAIN_CLASSES_TROMPA_3WAY, padding)
+            else:
+                train_data = TrompaMer(download, TRAIN_CLASSES_TROMPA, padding)
+                val_data = TrompaMer(False, TRAIN_CLASSES_TROMPA, padding)
         case "DEAM":
-            train_data = DEAM(download, TRAIN_CLASSES, padding)
-            val_data = DEAM(False, TEST_CLASSES, padding)
+            if n_way == 3:
+                train_data = DEAM(download, TRAIN_CLASSES_DEAM_3WAY, padding)
+                val_data = DEAM(False, TEST_CLASSES_DEAM_3WAY, padding)
+            else:
+                train_data = DEAM(download, TRAIN_CLASSES, padding)
+                val_data = DEAM(False, TEST_CLASSES, padding)
         case _:
             raise Exception("Wrong dataset name")
 
@@ -143,11 +83,15 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
             backbone = BackboneMTG()
         protonet = PrototypicalNet(backbone).to(DEVICE)
 
-        learner = FewShotLearner(protonet, num_classes=n_way, learning_rate=lr).to(DEVICE)
+        if MUSIC:
+            learner = FewShotNegativeLearner(protonet, num_classes=n_way, learning_rate=lr, threshold=1 / n_way).to(DEVICE)
+        else:
+            learner = FewShotLearner(protonet, num_classes=n_way, learning_rate=lr).to(DEVICE)
 
         wandb_logger = WandbLogger(project=wandb_project, job_type='train', log_model=True)
         wandb_logger.experiment.config.update({"k_way": n_way, "n_support": n_support, "n_query": n_query,
-                                               "TRAIN_CLASSES": train_data.classes, "TEST_CLASSES": val_data.classes})
+                                               "TRAIN_CLASSES": train_data.classes, "TEST_CLASSES": val_data.classes,
+                                               "padding": padding, "augmentation": augmentation})
 
         checkpoint_callback = ModelCheckpoint(dirpath='../../models/',
                                               monitor="loss/val",

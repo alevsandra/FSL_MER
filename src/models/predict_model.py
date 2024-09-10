@@ -1,9 +1,13 @@
+from typing import Union
+import umap
+
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
-from torchmetrics.classification import MulticlassPrecision, MulticlassF1Score, MulticlassRecall
 import tqdm
 import warnings
+import plotly.express as px
+from constants import *
 
 from common_architecture import PrototypicalNet, FewShotLearner
 from src.data.make_dataset import *
@@ -11,80 +15,109 @@ from backbone_model import Backbone, BackboneMTG
 
 ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
-TRAIN_CLASSES_MTG = [
-    'happy',
-    'film',
-    'energetic',
-    'relaxing',
-    'emotional',
-    'melodic',
-    'dark',
-    'epic',
-    'dream',
-    'love',
-    'inspiring',
-    'sad',
-    'meditative',
-    'advertising',
-    'motivational',
-    'deep',
-    'romantic',
-    'christmas',
-    'documentary',
-    'corporate',
-    'positive',
-    'summer',
-    'space',
-    'background',
-    'fun',
-    'melancholic',
-    'commercial',
-    'drama',
-    'movie',
-    'action',
-    'ballad',
-    'dramatic',
-    'sport',
-    'trailer',
-    'party',
-    'game',
-    'nature',
-    'cool',
-    'powerful',
-    'hopeful',
-    'retro',
-    'funny',
-    'groovy',
-    'holiday',
-    'travel',
-    'horror',
-    'sexy',
-    'fast',
-    'slow',
-    'upbeat',
-    'heavy',
-    'mellow',
-    'uplifting',
-    'adventure'
-]
-
-TEST_CLASSES_MTG = [
-    'soundscape',
-    'soft',
-    'ambiental',
-    'calm',
-    'children'
-]
-
-TRAIN_CLASSES = ['joy', 'power', 'surprise', 'sadness', 'bitterness', 'tenderness', 'transcendence']
-
-TEST_CLASSES = ['fear', 'peace', 'tenderness', 'anger', 'tension']
-
-TRAIN_CLASSES_PMEMO = ['surprise',   'tension', 'sadness', 'transcendence']
-
-TEST_CLASSES_PMEMO = ['power', 'tenderness']
-
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def dim_reduce(
+        embeddings: np.ndarray,
+        n_components: int = 3,
+        method: str = 'umap',
+):
+    """
+    This function performs dimensionality reduction on a given set of embeddings.
+    It can use either UMAP, t-SNE, or PCA for this purpose. The number of components
+    to reduce the data to and the method used for reduction can be specified as arguments.
+    It returns the projected embeddings as a NumPy array.
+
+    Args:
+        embeddings (np.ndarray): An array of embeddings, with shape (n_samples, n_features)
+        n_components (int): The number of dimensions to reduce the embeddings to. Default: 3
+        method (str): The method of dimensionality reduction to use.
+                        One of 'umap', 'tsne', or 'pca'. Default: 'umap'
+
+    Returns:
+        proj (np.ndarray): The dimensionality-reduced embeddings, with shape (n_samples, n_components)
+    """
+
+    if method == 'umap':
+        reducer = umap.UMAP(
+            n_neighbors=5,
+            n_components=n_components,
+            metric='euclidean'
+        )
+    elif method == 'tsne':
+        from sklearn.manifold import TSNE
+        reducer = TSNE(
+            n_components=n_components,
+            init='pca',
+            learning_rate='auto'
+        )
+
+    elif method == 'pca':
+        from sklearn.decomposition import PCA
+        reducer = PCA(n_components=n_components)
+    else:
+        raise ValueError(f'dunno how to do {method}')
+
+    proj = reducer.fit_transform(embeddings)
+
+    return proj
+
+
+def embedding_plot(
+        proj: np.ndarray,
+        color_labels: List[Union[int, str]],
+        marker_labels: List[int] = None,
+        title: str = ''
+):
+    """
+    Plot a set of embeddings that have been reduced using dim_reduce.
+
+    Args:
+        proj: a numpy array of shape (n_samples, n_components)
+        color_labels: a list of labels to color the points by
+        marker_labels: a list of labels to use as markers
+        title: the title of the plot
+
+    Returns:
+        a plotly figure object
+    """
+
+    n_components = proj.shape[-1]
+    if n_components == 2:
+        df = pd.DataFrame(dict(
+            x=proj[:, 0],
+            y=proj[:, 1],
+            label=color_labels
+        ))
+        fig = px.scatter(
+            df, x='x', y='y',
+            color='label',
+            title=title,
+            symbol=marker_labels
+        )
+    elif n_components == 3:
+        df = pd.DataFrame(dict(
+            x=proj[:, 0],
+            y=proj[:, 1],
+            z=proj[:, 2],
+            label=color_labels
+        ))
+        fig = px.scatter_3d(
+            df, x='x', y='y', z='z',
+            color='label',
+            symbol=marker_labels,
+            title=title
+        )
+    else:
+        raise ValueError(f"can only plot 2 or 3 components but got {n_components}")
+
+    fig.update_traces(marker=dict(size=6,
+                                  line=dict(width=1,
+                                            color='DarkSlateGrey')),
+                      selector=dict(mode='markers'))
+
+    return fig
 
 
 def get_model_from_ckpt(checkpoint_path, dataset):
@@ -117,7 +150,7 @@ def predict(n_way, n_support, n_query, n_val_episodes, dataset, checkpoint_path)
         case "DEAM":
             val_data = DEAM(False, TEST_CLASSES)
         case "TROMPA":
-            val_data = TrompaMer(False, TEST_CLASSES)
+            val_data = TrompaMer(False, TEST_CLASSES_TROMPA)
         case _:
             raise Exception("Wrong dataset name")
 
@@ -196,10 +229,7 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
     learner = get_model_from_ckpt(checkpoint_path, dataset)
 
     metrics = {
-        "accuracy": Accuracy(num_classes=n_way, task="multiclass").to(DEVICE),
-        "precision": MulticlassPrecision(num_classes=n_way, average="macro").to(DEVICE),
-        "recall": MulticlassRecall(num_classes=n_way, average="macro").to(DEVICE),
-        "f1_score": MulticlassF1Score(num_classes=n_way, average="macro").to(DEVICE)
+        "accuracy": Accuracy(num_classes=n_way, task="multiclass").to(DEVICE)
     }
 
     # collect all the embeddings in the test set
@@ -250,6 +280,27 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
     for name, metric in final_results.items():
         f.write(f"Total {name}, averaged across all episodes: {metric:.3f}\n")
     f.close()
+
+    # perform a TSNE over all embeddings in the test dataset
+    embeddings = dim_reduce(
+        embeddings=np.stack([d["embedding"] for d in embedding_table]),
+        method="tsne",
+        n_components=2,
+    )
+
+    # replace the original 512-dim embeddings with the 2-dim tsne embeddings
+    # in our embedding table
+    for entry, dim_reduced_embedding in zip(embedding_table, embeddings):
+        entry["embedding"] = dim_reduced_embedding
+
+    fig = embedding_plot(
+        proj=np.stack([d["embedding"] for d in embedding_table]),
+        color_labels=[d["label"] for d in embedding_table],
+        marker_labels=[d["marker"] for d in embedding_table],
+        title="Przestrzeń osadzenia zbioru " + dataset,
+    )
+
+    fig.show()
 
 
 @click.command()
