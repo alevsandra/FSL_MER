@@ -13,6 +13,7 @@ from pytorch_lightning.loggers import WandbLogger
 from constants import *
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+ROOT_DIR = os.path.split(os.environ['VIRTUAL_ENV'])[0]
 
 
 def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes, dataset, lr_values, wandb_project,
@@ -84,14 +85,18 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
         protonet = PrototypicalNet(backbone).to(DEVICE)
 
         if MUSIC:
-            learner = FewShotNegativeLearner(protonet, num_classes=n_way, learning_rate=lr, threshold=1 / n_way).to(DEVICE)
+            path = os.path.join(ROOT_DIR, "models/model.ckpt")
+            checkpoint = torch.load(path)
+            protonet.load_state_dict(checkpoint["state_dict"], strict=False)
+            learner = FewShotNegativeLearner(protonet, num_classes=n_way, learning_rate=lr, threshold=1 / n_way).to(
+                DEVICE)
         else:
             learner = FewShotLearner(protonet, num_classes=n_way, learning_rate=lr).to(DEVICE)
 
         wandb_logger = WandbLogger(project=wandb_project, job_type='train', log_model=True)
         wandb_logger.experiment.config.update({"k_way": n_way, "n_support": n_support, "n_query": n_query,
                                                "TRAIN_CLASSES": train_data.classes, "TEST_CLASSES": val_data.classes,
-                                               "padding": padding, "augmentation": augmentation})
+                                               "padding": padding, "augmentation": augmentation, "MUSIC": MUSIC})
 
         checkpoint_callback = ModelCheckpoint(dirpath='../../models/',
                                               monitor="loss/val",

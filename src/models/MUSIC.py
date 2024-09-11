@@ -1,6 +1,5 @@
 from torch import nn
 import torch
-import math
 
 
 def NegCELoss(neg_logits, neg_labels):

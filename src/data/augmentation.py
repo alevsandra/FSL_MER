@@ -99,7 +99,17 @@ def delete_class(data_path, annotation_file, class_names):
 @click.command()
 @click.option('--out_path', default='data/processed/augmentation', help='out path for augmented data')
 @click.option('--out_path_annotations', default='data/processed', help='out path for annotations')
-def main(out_path, out_path_annotations):
+@click.option('--delete_classes', default=[], help='out path for annotations', multiple=True)
+def main(out_path, out_path_annotations, delete_classes):
+    annotation_file = os.path.join(ROOT_DIR, out_path_annotations, "augmentation_annotations.csv")
+    # create output path if not present
+    full_path = os.path.join(ROOT_DIR, out_path)
+    if not os.path.isdir(full_path):
+        os.makedirs(full_path)
+
+    if delete_classes:
+        print("Deleting classes")
+        delete_class(full_path, annotation_file, ['tension'])
     # Q2 - 'tension', 'fear', 'anger'
     # Q4 - 'peace', 'transcendence', 'tenderness'
     # classes_for_augmentation = ['tension', 'fear', 'anger', 'peace', 'transcendence', 'tenderness']
@@ -116,13 +126,7 @@ def main(out_path, out_path_annotations):
     items.extend([pmemo[i] for i in get_indices(pmemo, classes_for_augmentation_pmemo)])
     items.extend([deam[i] for i in get_indices(deam, classes_for_augmentation)])
 
-    # create output path if not present
-    full_path = os.path.join(ROOT_DIR, out_path)
-    if not os.path.isdir(full_path):
-        os.makedirs(full_path)
-
     # create annotations file
-    annotation_file = os.path.join(ROOT_DIR, out_path_annotations, "augmentation_annotations.csv")
     write_to_csv(annotation_file, ['id', 'label'])
 
     # define transformations
@@ -133,7 +137,7 @@ def main(out_path, out_path_annotations):
 
     i = 4000
     for element in items:
-        augmented = augment(element['audio'][:, :691])
+        augmented = augment(element['audio'])
 
         filename = os.path.join(full_path, str(i) + ".npy")
         np.save(filename, augmented)
@@ -144,7 +148,4 @@ def main(out_path, out_path_annotations):
 
 
 if __name__ == '__main__':
-    path = os.path.join(ROOT_DIR, "data/processed/augmentation")
-    file_path = os.path.join(ROOT_DIR, "data/processed/augmentation_annotations.csv")
-    delete_class(path, file_path, ['tension'])
     main()

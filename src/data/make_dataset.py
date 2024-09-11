@@ -297,9 +297,13 @@ class DEAM(ClassConditionalDataset):
 
     def __getitem__(self, index):
         annotations = self.annotations.loc[[index]]
-        audio_path = os.path.join(ROOT_DIR,
-                                  'data/raw/MEMD_audio/DEAM_spectrograms/' + str(annotations.index.values[0]) + '.npy')
-        item = load_prepared_melspectrogram(audio_path, self.padding)
+        if self.augmentation:
+            audio_path = os.path.join(ROOT_DIR, 'data/external/DEAM/DEAM_audio/MEMD_audio/' + str(annotations.index.values[0]) + '.mp3')
+            item = make_melspectrogram(audio_path, self.padding, self.augmentation)
+        else:
+            audio_path = os.path.join(ROOT_DIR,
+                                      'data/raw/MEMD_audio/DEAM_spectrograms/' + str(annotations.index.values[0]) + '.npy')
+            item = load_prepared_melspectrogram(audio_path, self.padding)
         item['label'] = annotations['label'].values[0]
         return item
 
@@ -448,7 +452,8 @@ def main_trompa():
 
 if __name__ == '__main__':
     # main_pme()
-    deam = DEAM(False,
-                ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
-                 'tenderness', 'transcendence'])
-    print(deam[1])
+    deam = JointDataset(False,
+                        ['joy', 'power', 'surprise', 'anger', 'tension', 'fear', 'sadness', 'bitterness', 'peace',
+                         'tenderness', 'transcendence'], False, False)
+    for key, item in deam.class_to_indices.items():
+        print(key, len(item))

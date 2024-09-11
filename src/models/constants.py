@@ -67,7 +67,8 @@ TRAIN_CLASSES_DEAM_3WAY = ['joy', 'power', 'surprise', 'tension', 'fear', 'sadne
 
 TEST_CLASSES_DEAM_3WAY = ['peace', 'anger', 'tenderness']
 
-TRAIN_CLASSES_TROMPA_3WAY = ['joy', 'surprise', 'anger', 'tension', 'sadness', 'bitterness', 'tenderness', 'transcendence']
+TRAIN_CLASSES_TROMPA_3WAY = ['joy', 'surprise', 'anger', 'tension', 'sadness', 'bitterness', 'tenderness',
+                             'transcendence']
 
 TEST_CLASSES_TROMPA_3WAY = ['power', 'fear', 'peace']
 

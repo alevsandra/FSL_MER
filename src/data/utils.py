@@ -55,7 +55,7 @@ def load_mtg_melspectrogram(path) -> Dict:
 
 def load_prepared_melspectrogram(path, padding) -> Dict:
     if padding:
-        path.replace('DEAM_spectrograms', 'DEAM_spectrograms_padding')
+        path = path.replace('DEAM_spectrograms', 'DEAM_spectrograms_padding')
     y = torch.from_numpy(np.load(path))
     return {'audio': y}
 
