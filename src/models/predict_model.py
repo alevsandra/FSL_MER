@@ -120,7 +120,30 @@ def embedding_plot(
     return fig
 
 
-def get_model_from_ckpt(checkpoint_path, dataset):
+def plot_embeddings(embedding_table, dataset):
+    # perform a TSNE over all embeddings in the test dataset
+    embeddings = dim_reduce(
+        embeddings=np.stack([d["embedding"] for d in embedding_table]),
+        method="tsne",
+        n_components=2,
+    )
+
+    # replace the original 512-dim embeddings with the 2-dim tsne embeddings
+    # in our embedding table
+    for entry, dim_reduced_embedding in zip(embedding_table, embeddings):
+        entry["embedding"] = dim_reduced_embedding
+
+    fig = embedding_plot(
+        proj=np.stack([d["embedding"] for d in embedding_table]),
+        color_labels=[d["label"] for d in embedding_table],
+        marker_labels=[d["marker"] for d in embedding_table],
+        title="Przestrzeń osadzenia zbioru " + dataset,
+    )
+
+    fig.show()
+
+
+def get_model_from_ckpt(checkpoint_path, dataset, num_classes):
     checkpoint = torch.load(checkpoint_path)
     backbone = Backbone()
     if dataset == "MTG":
@@ -128,7 +151,8 @@ def get_model_from_ckpt(checkpoint_path, dataset):
     protonet = PrototypicalNet(backbone).to(DEVICE)
     protonet.load_state_dict(checkpoint["state_dict"], strict=False)
 
-    learner = FewShotLearner.load_from_checkpoint(checkpoint_path=checkpoint_path, protonet=protonet).to(DEVICE)
+    learner = FewShotLearner.load_from_checkpoint(checkpoint_path=checkpoint_path, protonet=protonet,
+                                                  num_classes=num_classes).to(DEVICE)
     learner.optimizer.load_state_dict(checkpoint["optimizer_states"][0])
     return learner
 
@@ -164,7 +188,7 @@ def predict(n_way, n_support, n_query, n_val_episodes, dataset, checkpoint_path)
 
     val_loader = DataLoader(val_episodes, batch_size=None, num_workers=num_workers, persistent_workers=True)
 
-    learner = get_model_from_ckpt(checkpoint_path, dataset)
+    learner = get_model_from_ckpt(checkpoint_path, dataset, n_way)
     learner.eval()
 
     trainer = pl.Trainer(
@@ -226,7 +250,7 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
         case _:
             raise Exception("Wrong dataset name")
 
-    learner = get_model_from_ckpt(checkpoint_path, dataset)
+    learner = get_model_from_ckpt(checkpoint_path, dataset, n_way)
 
     metrics = {
         "accuracy": Accuracy(num_classes=n_way, task="multiclass").to(DEVICE)
@@ -281,26 +305,7 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
         f.write(f"Total {name}, averaged across all episodes: {metric:.3f}\n")
     f.close()
 
-    # perform a TSNE over all embeddings in the test dataset
-    embeddings = dim_reduce(
-        embeddings=np.stack([d["embedding"] for d in embedding_table]),
-        method="tsne",
-        n_components=2,
-    )
-
-    # replace the original 512-dim embeddings with the 2-dim tsne embeddings
-    # in our embedding table
-    for entry, dim_reduced_embedding in zip(embedding_table, embeddings):
-        entry["embedding"] = dim_reduced_embedding
-
-    fig = embedding_plot(
-        proj=np.stack([d["embedding"] for d in embedding_table]),
-        color_labels=[d["label"] for d in embedding_table],
-        marker_labels=[d["marker"] for d in embedding_table],
-        title="Przestrzeń osadzenia zbioru " + dataset,
-    )
-
-    fig.show()
+    plot_embeddings(embedding_table, dataset)
 
 
 @click.command()
