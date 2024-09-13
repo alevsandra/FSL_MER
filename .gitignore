@@ -89,3 +89,4 @@ target/
 .mypy_cache/
 
 references/articles
+src/models/results.txt
