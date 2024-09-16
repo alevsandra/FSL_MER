@@ -1,5 +1,5 @@
 from typing import Union
-import umap
+import umap.umap_ as umap
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
@@ -241,7 +241,7 @@ def test(n_way, n_support, n_query, n_episodes, dataset, checkpoint_path, output
             )
         case "TROMPA":
             test_episodes = EpisodeDataset(
-                dataset=TrompaMer(False, TEST_CLASSES),
+                dataset=TrompaMer(False, TEST_CLASSES_TROMPA),
                 n_way=n_way,
                 n_support=n_support,
                 n_query=n_query,

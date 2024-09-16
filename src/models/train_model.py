@@ -88,7 +88,7 @@ def train(download, n_way, n_support, n_query, n_train_episodes, n_val_episodes,
             path = os.path.join(ROOT_DIR, "models/model.ckpt")
             checkpoint = torch.load(path)
             protonet.load_state_dict(checkpoint["state_dict"], strict=False)
-            learner = FewShotNegativeLearner(protonet, num_classes=n_way, learning_rate=lr, threshold=1 / n_way).to(
+            learner = FewShotNegativeLearner(protonet, num_classes=n_way, learning_rate=lr, threshold=0.01).to(
                 DEVICE)
         else:
             learner = FewShotLearner(protonet, num_classes=n_way, learning_rate=lr).to(DEVICE)

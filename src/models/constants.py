@@ -80,9 +80,13 @@ TRAIN_CLASSES = ['joy', 'power', 'surprise', 'sadness', 'bitterness', 'transcend
 
 TEST_CLASSES = ['fear', 'peace', 'tenderness', 'anger', 'tension']
 
+TEST_CLASSES_3 = ['fear', 'peace', 'tenderness']
+
 TRAIN_CLASSES_AUGMENTED = ['power', 'surprise', 'sadness', 'transcendence', 'anger', 'tension']
 
 TEST_CLASSES_AUGMENTED = ['joy', 'fear', 'peace', 'tenderness', 'bitterness']
+
+TEST_CLASSES_3_AUGMENTATION = ['fear', 'peace', 'joy']
 
 TRAIN_CLASSES_PMEMO = ['surprise', 'tension', 'sadness', 'transcendence']
 

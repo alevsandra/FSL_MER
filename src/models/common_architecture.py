@@ -81,7 +81,7 @@ class PrototypicalNet(nn.Module):
             out = softmax(unlabel_out[idx][pos])
             if len(pos) == 1 or out.min() > thres:
                 un_idx.append(idx)
-                r.append(_pos[-1] if _pos else np.argmin(out.cpu().detach().numpy(), axis=0))
+                r.append(_pos[-1] if _pos else torch.argmin(out).item())
             else:
                 a = pos[self.get_preds(out)]
                 _position[idx].append(a)
@@ -89,19 +89,6 @@ class PrototypicalNet(nn.Module):
                 r.append(a)
 
         return np.asarray(r), un_idx, unlabel_out
-
-    def get_positive_labels(self, unlabel_out, thres=0.7):
-        pseudo_labels, confident_idx = [], []
-        softmax = nn.Softmax(dim=1)
-
-        for idx, logits in enumerate(unlabel_out):
-            out = softmax(logits)
-            max_conf, pred = torch.max(out, dim=-1)
-            if max_conf > thres:
-                pseudo_labels.append(pred.item())
-                confident_idx.append(idx)
-
-        return torch.tensor(pseudo_labels), confident_idx
 
     def get_preds(self, out):
         return np.argmin(nn.Softmax(out), axis=0)
@@ -165,6 +152,7 @@ class FewShotNegativeLearner(pl.LightningModule):
         self.learning_rate = learning_rate
         self.num_classes = num_classes
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        self.optimizer_NL = torch.optim.SGD(self.parameters(), lr=self.learning_rate)
 
         self.loss = nn.CrossEntropyLoss()
         self.metrics = nn.ModuleDict({
@@ -176,19 +164,35 @@ class FewShotNegativeLearner(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return self.optimizer
 
+    def train_loop(self, inputs, targets):
+        def forward_fn(data, label):
+            logits = self.protonet.backbone(data)
+            return NegCELoss(logits, label) + mini_entropy_loss(logits), logits
+
+        def train_step(data, label):
+            loss, logits = forward_fn(data, label)
+            self.self.optimizer_NL.zero_grad()
+            loss.backward()
+            self.self.optimizer_NL.step()
+            return loss, logits
+
+        return train_step(torch.tensor(inputs), torch.tensor(targets))
+
     def step(self, batch, batch_idx, tag: str):
         support, query = batch
 
         logits = self.protonet(support, query)
         loss = self.loss(logits, query["target"])
 
-        position = [[i for i in range(self.num_classes)] for _ in range(len(support["audio"]))]
-        _position = [[] for _ in range(len(support["audio"]))]
+        position = [[i for i in range(self.num_classes)] for _ in range(len(query["audio"]))]
+        _position = [[] for _ in range(len(query["audio"]))]
 
-        pseudo_label, un_idx, neg_logits = self.protonet.get_negative_labels(support["audio"], position, _position)
+        pseudo_label, un_idx, neg_logits = self.protonet.get_negative_labels(query["audio"], position, _position)
         if len(un_idx) > 0:
-            pseudo_label = torch.tensor(pseudo_label).to(self.device)
-            loss += NegCELoss(neg_logits[un_idx], pseudo_label) + mini_entropy_loss(neg_logits[un_idx])
+            for epoch in range(10):
+                neg_loss, _ = self.train_loop(query["audio"][un_idx], pseudo_label)
+                loss += neg_loss
+                print(f"Epoch: {epoch}  Loss: {loss}")
 
         output = {"loss": loss}
         for k, metric in self.metrics.items():

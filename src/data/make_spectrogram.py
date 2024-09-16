@@ -44,7 +44,6 @@ def make_spectrogram_DEAM_padding(file):
     np.save(os.path.join(out_dir, filename), S)
 
 
-
 @click.command()
 @click.option('--path', default='D:/magisterka-dane-mp3/00', help='mp3 directory path')
 def main(path):
