@@ -3,12 +3,10 @@ FSL_MER
 
 Music emotion recognition with Few-Shot learning methods.
 
-# Datasets
+# References
 
-##  MTG-Jamendo dataset
-
-To download and unpack the dataset, I used the script provided by its authors [download.py](src%2Fdata%2Fmtg_jamendo_dataset%2Fscripts%2Fdownload%2Fdownload.py) with a few modifications to fit my case -  the altered version can be found here: [download.py](src%2Fdata%2FMTG_Jamendo%2Fdownload.py).
-
+1. Wang, Yu, Hugo Flores García, and Jeong Choi. Few-Shot and Zero-Shot Learning for Music Information Retrieval. https://music-fsl-zsl.github.io/tutorial, 2022.
+2. Wei, Xiu-Shen, He-Yang Xu, Zhiwen Yang, Chen-Long Duan, and Yuxin Peng. "Negatives make a positive: An embarrassingly simple approach to semi-supervised few-shot learning." IEEE Transactions on Pattern Analysis and Machine Intelligence (2023).
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
