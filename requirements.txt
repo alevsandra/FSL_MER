@@ -25,3 +25,4 @@ audiomentations~=0.35.0
 plotly~=5.24.0
 umap~=0.1.1
 umap-learn~=0.5.6
+mindspore~=2.4.0
