@@ -72,27 +72,6 @@ class PrototypicalNet(nn.Module):
         # return the logits
         return logits
 
-    def get_negative_labels(self, unlabel_out, position, _position, thres=0.2):
-        unlabel_out = self.backbone(unlabel_out)
-        r, un_idx = [], []
-        softmax = nn.Softmax()
-
-        for idx, (pos, _pos) in enumerate(zip(position, _position)):
-            out = softmax(unlabel_out[idx][pos])
-            if len(pos) == 1 or out.min() > thres:
-                un_idx.append(idx)
-                r.append(_pos[-1] if _pos else torch.argmin(out).item())
-            else:
-                a = pos[self.get_preds(out)]
-                _position[idx].append(a)
-                position[idx].remove(a)
-                r.append(a)
-
-        return np.asarray(r), un_idx, unlabel_out
-
-    def get_preds(self, out):
-        return np.argmin(nn.Softmax(out), axis=0)
-
 
 class FewShotLearner(pl.LightningModule):
     def __init__(self,
@@ -165,15 +144,17 @@ class FewShotNegativeLearner(pl.LightningModule):
         return self.optimizer
 
     def train_loop(self, inputs, targets):
-        def forward_fn(data, label):
-            logits = self.protonet.backbone(data)
+        def forward_fn(logits, label):
+            label = label.detach().to(device='cuda')
             return NegCELoss(logits, label) + mini_entropy_loss(logits), logits
 
         def train_step(data, label):
             loss, logits = forward_fn(data, label)
-            self.self.optimizer_NL.zero_grad()
+            self.optimizer_NL.zero_grad()
+            if not loss.requires_grad:
+                loss.requires_grad = True
             loss.backward()
-            self.self.optimizer_NL.step()
+            self.optimizer_NL.step()
             return loss, logits
 
         return train_step(torch.tensor(inputs), torch.tensor(targets))
@@ -184,15 +165,16 @@ class FewShotNegativeLearner(pl.LightningModule):
         logits = self.protonet(support, query)
         loss = self.loss(logits, query["target"])
 
-        position = [[i for i in range(self.num_classes)] for _ in range(len(query["audio"]))]
-        _position = [[] for _ in range(len(query["audio"]))]
+        position = [[i for i in range(self.num_classes)] for _ in range(len(query["embeddings"]))]
+        _position = [[] for _ in range(len(query["embeddings"]))]
 
-        pseudo_label, un_idx, neg_logits = self.protonet.get_negative_labels(query["audio"], position, _position)
-        if len(un_idx) > 0:
+        pseudo_label, unselected_indices, neg_logits = self.get_negative_labels(query["embeddings"], position, _position)
+        selected_indices = [idx for idx in range(len(query["embeddings"])) if idx not in unselected_indices]
+
+        if selected_indices:
             for epoch in range(10):
-                neg_loss, _ = self.train_loop(query["audio"][un_idx], pseudo_label)
-                loss += neg_loss
-                print(f"Epoch: {epoch}  Loss: {loss}")
+                neg_loss, logits_xd = self.train_loop(query["embeddings"][selected_indices], pseudo_label)
+                print(f"Epoch: {epoch}  Loss: {neg_loss}")
 
         output = {"loss": loss}
         for k, metric in self.metrics.items():
@@ -210,3 +192,27 @@ class FewShotNegativeLearner(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         return self.step(batch, batch_idx, "test")
+
+    def get_negative_labels(self, unlabel_out, position, _position, thres=0.2):
+        results, uncertain_indices = [], []
+        softmax = nn.Softmax()
+
+        for idx, (pos, _pos) in enumerate(zip(position, _position)):
+            out = softmax(unlabel_out[idx][pos])
+            if len(pos) == 1:
+                uncertain_indices.append(idx)
+                continue
+            if out.min() > thres:
+                uncertain_indices.append(idx)
+                results.append(_pos[-1] if _pos else torch.argmin(out).item())
+                continue
+
+            a = pos[self.get_preds(out)]
+            _position[idx].append(a)
+            position[idx].remove(a)
+            results.append(a)
+
+        return np.asarray(results), uncertain_indices, unlabel_out
+
+    def get_preds(self, out):
+        return np.argmin(nn.Softmax(out), axis=0)
