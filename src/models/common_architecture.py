@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import numpy as np
 from torchmetrics import Accuracy
 from MUSIC import NegCELoss, mini_entropy_loss
+from tqdm import tqdm
 
 
 def count_parameters(model):
@@ -144,37 +145,41 @@ class FewShotNegativeLearner(pl.LightningModule):
         return self.optimizer
 
     def train_loop(self, inputs, targets):
-        def forward_fn(logits, label):
-            label = label.detach().to(device='cuda')
-            return NegCELoss(logits, label) + mini_entropy_loss(logits), logits
-
-        def train_step(data, label):
-            loss, logits = forward_fn(data, label)
-            self.optimizer_NL.zero_grad()
-            if not loss.requires_grad:
-                loss.requires_grad = True
-            loss.backward()
-            self.optimizer_NL.step()
-            return loss, logits
-
-        return train_step(torch.tensor(inputs), torch.tensor(targets))
+        data, label = torch.tensor(inputs), torch.tensor(targets)
+        label = label.detach().to(device='cuda')
+        loss = NegCELoss(data, label) + mini_entropy_loss(data)
+        self.optimizer_NL.zero_grad()
+        if not loss.requires_grad:
+            loss.requires_grad = True
+        loss.backward()
+        self.optimizer_NL.step()
+        return loss, data
 
     def step(self, batch, batch_idx, tag: str):
         support, query = batch
-
         logits = self.protonet(support, query)
         loss = self.loss(logits, query["target"])
 
-        position = [[i for i in range(self.num_classes)] for _ in range(len(query["embeddings"]))]
-        _position = [[] for _ in range(len(query["embeddings"]))]
+        if tag is None:
+            # Extract query embeddings and prototypes
+            query_embeddings = query["embeddings"]
+            prototypes = support["prototypes"]
 
-        pseudo_label, unselected_indices, neg_logits = self.get_negative_labels(query["embeddings"], position, _position)
-        selected_indices = [idx for idx in range(len(query["embeddings"])) if idx not in unselected_indices]
+            # Pseudo-label the query embeddings
+            self.refine_with_pseudo_labels(query_embeddings, prototypes)
 
-        if selected_indices:
-            for epoch in range(10):
-                neg_loss, logits_xd = self.train_loop(query["embeddings"][selected_indices], pseudo_label)
-                print(f"Epoch: {epoch}  Loss: {neg_loss}")
+            loss = NegCELoss(logits, query["target"]) + mini_entropy_loss(logits)
+
+        # position = [[i for i in range(self.num_classes)] for _ in range(len(query["embeddings"]))]
+        # _position = [[] for _ in range(len(query["embeddings"]))]
+        #
+        # pseudo_label, unselected_indices, neg_logits = self.get_negative_labels(query["embeddings"], position, _position)
+        # selected_indices = [idx for idx in range(len(query["embeddings"])) if idx not in unselected_indices]
+        #
+        # if selected_indices:
+        #     for epoch in (pbar := tqdm(range(10))):
+        #         neg_loss, logits_xd = self.train_loop(query["embeddings"][selected_indices], pseudo_label)
+        #         pbar.set_description(f"Epoch: {epoch}  Loss: {neg_loss}")
 
         output = {"loss": loss}
         for k, metric in self.metrics.items():
@@ -184,7 +189,7 @@ class FewShotNegativeLearner(pl.LightningModule):
             self.log(f"{k}/{tag}", v)
         return output
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, tag: str):
         return self.step(batch, batch_idx, "train")
 
     def validation_step(self, batch, batch_idx):
@@ -216,3 +221,53 @@ class FewShotNegativeLearner(pl.LightningModule):
 
     def get_preds(self, out):
         return np.argmin(nn.Softmax(out), axis=0)
+
+    def generate_negative_pseudo_labels(self, query_embeddings, prototypes, threshold=0.2):
+        """
+        Generate negative pseudo-labels for the query set based on the MUSIC approach.
+        The negative pseudo-label is given to the class with the minimum predicted probability.
+        """
+        distances = torch.cdist(query_embeddings.unsqueeze(0), prototypes.unsqueeze(0), p=2).squeeze(0)
+        distances = distances ** 2  # squared Euclidean distance
+
+        # Compute the negative probabilities for each query embedding
+        neg_probabilities = torch.min(distances, dim=1).values
+        neg_class = torch.argmin(distances, dim=1)
+
+        # Pseudo-labeling based on the negative class
+        pseudo_labels = torch.zeros_like(neg_probabilities)
+        confidence_mask = neg_probabilities <= threshold
+        pseudo_labels[confidence_mask] = neg_class[confidence_mask]
+
+        return pseudo_labels, confidence_mask
+
+    def pseudo_labeling_step(self, query_embeddings, prototypes):
+        """
+        Generate pseudo-labels and update the training data.
+        For each sample, we exclude the class with the most confident negative prediction.
+        """
+        pseudo_labels, confidence_mask = self.generate_negative_pseudo_labels(query_embeddings, prototypes)
+
+        pseudo_labeled_data = []
+        pseudo_labeled_targets = []
+
+        for i, label in enumerate(pseudo_labels):
+            if confidence_mask[i]:  # Only include those with confident pseudo-labels
+                pseudo_labeled_data.append(query_embeddings[i])
+                pseudo_labeled_targets.append(label)
+
+        return torch.stack(pseudo_labeled_data), torch.tensor(pseudo_labeled_targets)
+
+    def refine_with_pseudo_labels(self, query_embeddings, prototypes):
+        """
+        Refine the model by including pseudo-labeled data in the training process.
+        """
+        pseudo_labeled_data, pseudo_labeled_targets = self.pseudo_labeling_step(query_embeddings, prototypes)
+
+        if len(pseudo_labeled_data) > 0:
+            support_data = torch.cat([query_embeddings, pseudo_labeled_data])
+            support_targets = torch.cat([query_embeddings["target"], pseudo_labeled_targets])
+            support = {"audio": support_data, "target": support_targets}
+
+            # Retrain the model using the augmented dataset
+            self.training_step(support, 0, tag="retrain")
