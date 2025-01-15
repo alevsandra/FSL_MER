@@ -91,3 +91,5 @@ TEST_CLASSES_3_AUGMENTATION = ['fear', 'peace', 'joy']
 TRAIN_CLASSES_PMEMO = ['surprise', 'tension', 'sadness', 'transcendence']
 
 TEST_CLASSES_PMEMO = ['power', 'tenderness']
+
+CLASSES_PMEMO = ['surprise', 'tension', 'sadness', 'transcendence', 'power', 'tenderness']
