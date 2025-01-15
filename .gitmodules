@@ -1,3 +1,9 @@
 [submodule "src/data/mtg-jamendo-dataset"]
 	path = src/data/mtg_jamendo_dataset
 	url = https://github.com/MTG/mtg-jamendo-dataset.git
+[submodule "src/models/siamese-pytorch"]
+	path = src/models/siamese_pytorch
+	url = https://github.com/fangpin/siamese-pytorch.git
+[submodule "src/models/siamese_neural_network"]
+	path = src/models/siamese_neural_network
+	url = https://github.com/bhiziroglu/Siamese-Neural-Networks.git
